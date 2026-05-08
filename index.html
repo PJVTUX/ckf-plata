@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a1a2e">
+<title>CKF PLATA</title>
+<style>
+:root {
+  --bg:      #f2f2f7;
+  --card:    #ffffff;
+  --text:    #1c1c1e;
+  --muted:   #8e8e93;
+  --sep:     #e5e5ea;
+  --dark:    #1a1a2e;
+  --accent:  #e31e24;
+  --green:   #34c759;
+  --yellow:  #ffd60a;
+  --blue:    #007aff;
+  --r:       16px;
+}
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body {
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text); font-weight:500;
+  min-height:100dvh;
+}
+
+/* ── PIN SCREEN ─────────────────────────────────── */
+#pin-screen {
+  min-height:100dvh; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:var(--dark); padding:32px 24px;
+}
+.pin-logo {
+  display:flex; align-items:center; gap:10px; margin-bottom:36px;
+}
+.pin-logo .name { font-size:28px; font-weight:800; color:#fff; letter-spacing:-.5px; }
+.pin-logo .tag {
+  background:var(--yellow); color:#1c1c1e; font-size:12px;
+  font-weight:800; padding:4px 10px; border-radius:20px; letter-spacing:.5px;
+}
+.pin-subtitle { color:rgba(255,255,255,.5); font-size:14px; margin-bottom:32px; }
+.pin-dots {
+  display:flex; gap:14px; margin-bottom:36px;
+}
+.pin-dot {
+  width:16px; height:16px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.35);
+  background:transparent; transition:background .15s, border-color .15s;
+}
+.pin-dot.filled { background:#fff; border-color:#fff; }
+.pin-keypad {
+  display:grid; grid-template-columns:repeat(3,72px); gap:12px;
+}
+.pin-key {
+  height:72px; border-radius:50%; border:none;
+  background:rgba(255,255,255,.1); color:#fff;
+  font-size:22px; font-weight:600; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:background .12s;
+}
+.pin-key:active { background:rgba(255,255,255,.25); }
+.pin-key .sub { font-size:9px; font-weight:600; letter-spacing:.8px; color:rgba(255,255,255,.5); }
+.pin-key.del { background:transparent; font-size:18px; }
+.pin-key.ok  { background:var(--accent); }
+.pin-key.ok:active { background:#c4181e; }
+.pin-error {
+  margin-top:20px; color:#ff6b6b; font-size:14px; font-weight:600;
+  min-height:20px; text-align:center;
+}
+.pin-cfg {
+  margin-top:32px; color:rgba(255,255,255,.3); font-size:12px;
+  cursor:pointer; text-decoration:underline;
+}
+
+/* ── MAIN APP ───────────────────────────────────── */
+#app-screen { display:none; min-height:100dvh; }
+
+header {
+  background:var(--dark); padding:16px 16px 14px;
+  position:sticky; top:0; z-index:100;
+}
+.h-top { display:flex; align-items:center; justify-content:space-between; }
+.h-logo { display:flex; align-items:center; gap:8px; }
+.h-logo .name { font-size:20px; font-weight:800; color:#fff; letter-spacing:-.5px; }
+.h-logo .tag  { background:var(--yellow); color:#1c1c1e; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; }
+.h-user {
+  display:flex; align-items:center; gap:8px;
+}
+.h-username {
+  color:rgba(255,255,255,.8); font-size:13px; font-weight:600;
+}
+.h-logout {
+  background:rgba(255,255,255,.15); border:1.5px solid rgba(255,255,255,.3);
+  color:#fff; font-size:12px; font-weight:600;
+  padding:5px 12px; border-radius:20px; cursor:pointer;
+}
+.h-logout:active { background:rgba(255,255,255,.28); }
+
+/* ── PERIOD TABS ─────────────────────────────────── */
+.period-tabs {
+  display:flex; gap:8px; overflow-x:auto; padding:14px 16px 0;
+  scrollbar-width:none;
+}
+.period-tabs::-webkit-scrollbar { display:none; }
+.period-tab {
+  flex-shrink:0; padding:7px 16px; border-radius:20px;
+  font-size:13px; font-weight:600; cursor:pointer;
+  background:var(--card); color:var(--muted); border:1.5px solid var(--sep);
+  transition:all .15s;
+}
+.period-tab.active {
+  background:var(--dark); color:#fff; border-color:var(--dark);
+}
+
+/* ── SALARY CARD ─────────────────────────────────── */
+.salary-wrap { padding:14px 16px; }
+.salary-card {
+  background:var(--card); border-radius:var(--r);
+  overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.07);
+}
+.salary-header {
+  background:linear-gradient(135deg, var(--dark) 0%, #16213e 100%);
+  padding:18px 18px 14px;
+}
+.salary-period { color:rgba(255,255,255,.55); font-size:12px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.salary-name { color:#fff; font-size:20px; font-weight:800; margin-top:2px; }
+
+.salary-rows { padding:4px 0; }
+.salary-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:13px 18px; border-bottom:1px solid var(--sep);
+}
+.salary-row:last-child { border-bottom:none; }
+.sr-label { font-size:13px; color:var(--muted); font-weight:500; }
+.sr-val { font-size:16px; font-weight:700; color:var(--text); }
+
+/* highlight rows */
+.salary-row.zaradjeno .sr-val { color:var(--blue); }
+.salary-row.dug       .sr-val { color:var(--accent); }
+.salary-row.dug.paid  .sr-val { color:var(--green); }
+.salary-row.zaradjeno,
+.salary-row.dug {
+  background:#f9f9fb;
+}
+
+/* ── EMPTY / LOADING ─────────────────────────────── */
+.state-msg {
+  text-align:center; padding:60px 24px; color:var(--muted); font-size:15px;
+}
+.state-msg .ico { font-size:42px; display:block; margin-bottom:10px; }
+
+/* ── SETTINGS OVERLAY ──────────────────────────── */
+.overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+  z-index:500; align-items:flex-end; justify-content:center;
+}
+.overlay.show { display:flex; }
+.sheet {
+  background:var(--card); border-radius:20px 20px 0 0; padding:24px 20px 36px;
+  width:100%; max-width:480px;
+}
+.sheet h3 { font-size:17px; font-weight:700; margin-bottom:16px; }
+.add-input {
+  width:100%; border:1.5px solid var(--sep); border-radius:10px;
+  padding:10px 12px; font-size:14px; color:var(--text); outline:none;
+  background:#fafafa; font-weight:500;
+}
+.add-input:focus { border-color:var(--dark); background:#fff; }
+.modal-btns { display:flex; gap:10px; margin-top:14px; }
+.mbtn {
+  flex:1; padding:13px; border:none; border-radius:12px;
+  font-size:15px; font-weight:700; cursor:pointer;
+}
+.mbtn.cancel { background:var(--sep); color:var(--text); }
+.mbtn.save   { background:var(--dark); color:#fff; }
+
+/* ── FOOTER NOTE ─────────────────────────────────── */
+.footer-note {
+  text-align:center; padding:20px 16px 36px;
+  font-size:12px; color:var(--muted);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ PIN SCREEN ═══════════════════════════════════════════════════ -->
+<div id="pin-screen">
+  <div class="pin-logo">
+    <span class="name">CKF</span>
+    <span class="tag">PLATA</span>
+  </div>
+  <p class="pin-subtitle">Unesite vaš PIN za pristup</p>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="keyPress('1')">1</button>
+    <button class="pin-key" onclick="keyPress('2')">2<div class="sub">ABC</div></button>
+    <button class="pin-key" onclick="keyPress('3')">3<div class="sub">DEF</div></button>
+    <button class="pin-key" onclick="keyPress('4')">4<div class="sub">GHI</div></button>
+    <button class="pin-key" onclick="keyPress('5')">5<div class="sub">JKL</div></button>
+    <button class="pin-key" onclick="keyPress('6')">6<div class="sub">MNO</div></button>
+    <button class="pin-key" onclick="keyPress('7')">7<div class="sub">PQRS</div></button>
+    <button class="pin-key" onclick="keyPress('8')">8<div class="sub">TUV</div></button>
+    <button class="pin-key" onclick="keyPress('9')">9<div class="sub">WXYZ</div></button>
+    <button class="pin-key del" onclick="keyDel()">⌫</button>
+    <button class="pin-key" onclick="keyPress('0')">0</button>
+    <button class="pin-key ok" onclick="keySubmit()">OK</button>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <span class="pin-cfg" onclick="showCfg()">⚙ Podešavanja</span>
+</div>
+
+<!-- ═══ APP SCREEN ════════════════════════════════════════════════════ -->
+<div id="app-screen">
+  <header>
+    <div class="h-top">
+      <div class="h-logo">
+        <span class="name">CKF</span>
+        <span class="tag">PLATA</span>
+      </div>
+      <div class="h-user">
+        <span class="h-username" id="h-username"></span>
+        <button class="h-logout" onclick="logout()">Izlaz</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="period-tabs" id="period-tabs"></div>
+  <div class="salary-wrap" id="salary-wrap"></div>
+  <div class="footer-note">CKF Restaurant · Podaci su povjerljivi</div>
+</div>
+
+<!-- ═══ CFG MODAL ═════════════════════════════════════════════════════ -->
+<div class="overlay" id="modal-cfg" onclick="bgClose(event,'modal-cfg')">
+  <div class="sheet">
+    <h3>⚙ Podešavanja</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Apps Script URL:</p>
+    <input class="add-input" type="url" id="cfg-url" placeholder="https://script.google.com/...">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="hideCfg()">Otkaži</button>
+      <button class="mbtn save" onclick="saveCfg()">Sačuvaj</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────
+let customUrl = localStorage.getItem("ckfPlataUrl") || "https://script.google.com/macros/s/AKfycbxZ4gTP4lG8-ScS-X9t6tKH8pTyu8qvCf8_yVR-OybfXeHe6wf2E7lZrbdbyXb388d0/exec";
+let currentPin = "";
+let employeeData = null; // { radnik, records: [...] }
+let activePeriod = "";
+
+// ─── PIN LOGIC ───────────────────────────────────────────────────────
+let pinValue = "";
+
+function keyPress(d) {
+  if (pinValue.length >= 4) return;
+  pinValue += d;
+  updateDots();
+  if (pinValue.length === 4) setTimeout(keySubmit, 120);
+}
+function keyDel() {
+  pinValue = pinValue.slice(0, -1);
+  updateDots();
+  setError("");
+}
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById("d" + i).classList.toggle("filled", i < pinValue.length);
+  }
+}
+function setError(msg) {
+  document.getElementById("pin-error").textContent = msg;
+}
+
+async function keySubmit() {
+  if (pinValue.length < 4) { setError("Unesite 4-cifreni PIN"); return; }
+  if (!customUrl) { showCfg(); setError("Prvo unesite Apps Script URL"); return; }
+
+  setError("Provjera...");
+  try {
+    const res = await fetch(customUrl + "?pin=" + encodeURIComponent(pinValue) + "&ts=" + Date.now(), { cache:"no-store" });
+    const data = await res.json();
+    if (data.error) { setError(data.error); pinValue = ""; updateDots(); return; }
+    employeeData = data;
+    showApp();
+  } catch(e) {
+    setError("Greška veze. Provjerite URL.");
+    pinValue = ""; updateDots();
+  }
+}
+
+// ─── APP ─────────────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById("pin-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  document.getElementById("h-username").textContent = employeeData.radnik || "Radnik";
+
+  const records = employeeData.records || [];
+  renderTabs(records);
+  if (records.length > 0) {
+    activePeriod = records[0].period;
+    renderPeriodTab(activePeriod);
+  } else {
+    document.getElementById("salary-wrap").innerHTML =
+      '<div class="state-msg"><span class="ico">📋</span>Nema podataka za prikaz</div>';
+  }
+}
+
+function renderTabs(records) {
+  const tabs = document.getElementById("period-tabs");
+  tabs.innerHTML = "";
+  records.forEach((r, i) => {
+    const btn = document.createElement("button");
+    btn.className = "period-tab" + (i === 0 ? " active" : "");
+    btn.textContent = formatPeriod(r.period);
+    btn.onclick = () => {
+      document.querySelectorAll(".period-tab").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      activePeriod = r.period;
+      renderPeriodTab(r.period);
+    };
+    tabs.appendChild(btn);
+  });
+}
+
+function renderPeriodTab(period) {
+  const rec = (employeeData.records || []).find(r => r.period === period);
+  if (!rec) return;
+  const wrap = document.getElementById("salary-wrap");
+
+  const dug = parseFloat(rec.DUG ?? (parseFloat(rec.ZARADJENO||0) - parseFloat(rec.UPLACENO||0)).toFixed(2));
+  const isPaid = dug <= 0;
+
+  wrap.innerHTML = `
+    <div class="salary-card">
+      <div class="salary-header">
+        <div class="salary-period">${formatPeriod(period)}</div>
+        <div class="salary-name">${employeeData.radnik || ""}</div>
+      </div>
+      <div class="salary-rows">
+        <div class="salary-row">
+          <span class="sr-label">Osnovna plata (PLATA)</span>
+          <span class="sr-val">${fmt(rec.PLATA)} €</span>
+        </div>
+        <div class="salary-row">
+          <span class="sr-label">Satnica</span>
+          <span class="sr-val">${fmt(rec.satnica)} €/h</span>
+        </div>
+        <div class="salary-row">
+          <span class="sr-label">Odrađeno (ODRADJENO)</span>
+          <span class="sr-val">${fmt(rec.ODRADJENO)} h</span>
+        </div>
+        <div class="salary-row zaradjeno">
+          <span class="sr-label">Zarađeno (ZARAĐENO)</span>
+          <span class="sr-val">${fmt(rec.ZARADJENO)} €</span>
+        </div>
+        <div class="salary-row">
+          <span class="sr-label">Isplaćeno (UPLAĆENO)</span>
+          <span class="sr-val">${fmt(rec.UPLACENO)} €</span>
+        </div>
+        <div class="salary-row dug ${isPaid ? 'paid' : ''}">
+          <span class="sr-label">${isPaid ? '✅ Izmireno (DUG)' : '⏳ Ostatak za isplatu (DUG)'}</span>
+          <span class="sr-val">${fmt(Math.abs(dug))} €</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function fmt(v) {
+  if (v === undefined || v === null || v === "") return "–";
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return n.toLocaleString("sr-RS", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatPeriod(p) {
+  if (!p) return p;
+  const months = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Avg","Sep","Okt","Nov","Dec"];
+  const parts = String(p).split("-");
+  if (parts.length === 2) {
+    const m = parseInt(parts[1], 10);
+    return months[m - 1] + " " + parts[0];
+  }
+  return p;
+}
+
+function logout() {
+  employeeData = null;
+  pinValue = ""; updateDots(); setError("");
+  document.getElementById("app-screen").style.display = "none";
+  document.getElementById("pin-screen").style.display = "flex";
+}
+
+// ─── CONFIG ──────────────────────────────────────────────────────────
+function showCfg() { document.getElementById("modal-cfg").classList.add("show"); document.getElementById("cfg-url").value = customUrl; }
+function hideCfg() { document.getElementById("modal-cfg").classList.remove("show"); }
+function bgClose(e, id) { if (e.target.id === id) hideCfg(); }
+function saveCfg() { customUrl = document.getElementById("cfg-url").value.trim(); localStorage.setItem("ckfPlataUrl", customUrl); hideCfg(); setError(""); }
+
+// ─── INIT ─────────────────────────────────────────────────────────────
+document.getElementById("cfg-url").value = customUrl;
+</script>
+</body>
+</html>
