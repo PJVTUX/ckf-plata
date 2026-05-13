@@ -276,6 +276,19 @@ header {
   padding: 5px 6px 4px;
   background: #f0f0f5; cursor: default;
   overflow: hidden; box-sizing: border-box;
+  min-height: 62px;
+}
+@media (max-width: 500px) {
+  .cal-day {
+    aspect-ratio: unset;
+    min-height: 66px;
+  }
+  .cal-grid { gap: 3px; }
+  .cal-num  { font-size: 11px; }
+  .cal-smena-badge { font-size: 10px; }
+  .cal-hrs  { font-size: 12px; }
+  .cal-upl  { font-size: 10px; font-weight: 700; }
+  .cal-dow  { font-size: 10px; padding-bottom: 4px; }
 }
 .cal-day.smena1  { background: #FFF8C5; }
 .cal-day.smena2  { background: #D6EEFF; }
