@@ -270,10 +270,12 @@ header {
 }
 .cal-day {
   aspect-ratio: 1; border-radius: 8px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  padding: 3px 4px;
   background: #f0f0f5; cursor: default;
-  position: relative; overflow: hidden;
+  overflow: hidden; box-sizing: border-box;
 }
 .cal-day.smena1  { background: #FFFACD; }
 .cal-day.smena2  { background: #DDEEFF; }
@@ -281,16 +283,28 @@ header {
 .cal-day.slobodan{ background: #FFD5D5; }
 .cal-day.empty   { background: transparent; }
 .cal-num {
-  font-size: 11px; font-weight: 700; color: #333; line-height: 1;
+  grid-column: 1; grid-row: 1;
+  font-size: 10px; font-weight: 700; color: #333;
+  line-height: 1.2; align-self: start;
+}
+.cal-smena-badge {
+  grid-column: 2; grid-row: 1;
+  font-size: 9px; font-weight: 800; color: #555;
+  text-align: right; line-height: 1.2; align-self: start;
 }
 .cal-hrs {
-  font-size: 9px; color: #555; margin-top: 2px; line-height: 1;
+  grid-column: 1 / -1; grid-row: 2;
+  font-size: 10px; font-weight: 600; color: #333;
+  text-align: center; align-self: center;
+}
+.cal-upl {
+  grid-column: 1 / -1; grid-row: 3;
+  font-size: 7px; color: #444;
+  text-align: center; align-self: end;
+  white-space: nowrap; overflow: hidden;
 }
 .cal-loading {
   text-align: center; color: #aaa; font-size: 13px; padding: 16px 0;
-}
-.cal-smena-badge {
-  font-size: 8px; font-weight: 800; color: #666; line-height: 1;
 }
 
 </style>
@@ -725,15 +739,17 @@ function renderCalendar(data) {
     // empty = no data, stays default grey
 
     let inner = '<span class="cal-num">' + day.num + '</span>';
-    if (smena) {
-      inner += '<span class="cal-smena-badge">' + smena + '</span>';
-    }
+    inner += '<span class="cal-smena-badge">' + (smena || '') + '</span>';
     if (hours > 0) {
       inner += '<span class="cal-hrs">' + hours + 'h</span>';
+    } else {
+      inner += '<span class="cal-hrs"></span>';
     }
     const upl = day.upl || 0;
     if (upl > 0) {
-      inner += '<span class="cal-hrs">' + upl.toLocaleString("sr-RS") + '</span>';
+      inner += '<span class="cal-upl">' + Math.round(upl).toLocaleString("de-DE") + '</span>';
+    } else {
+      inner += '<span class="cal-upl"></span>';
     }
     gridHTML += '<div class="' + cls + '">' + inner + '</div>';
   });
