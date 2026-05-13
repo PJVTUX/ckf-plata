@@ -825,15 +825,30 @@ function renderCalendar(data) {
     } else {
       inner += '<span class="cal-upl"></span>';
     }
-    // Admin: tap to edit
-    const clickAttr = (currentPosition === "administrator")
-      ? ' onclick="openEditModal(' + day.num + ','' + smena + '',' + hours + ',' + (day.upl||0) + ')" style="cursor:pointer"'
+    const isAdmin = currentPosition === "administrator";
+    const dataAttr = isAdmin
+      ? ' data-day="' + day.num + '" data-smena="' + smena + '" data-hours="' + hours + '" data-upl="' + (day.upl||0) + '"'
       : '';
-    gridHTML += '<div class="' + cls + '"' + clickAttr + '>' + inner + '</div>';
+    const cursorStyle = isAdmin ? ' style="cursor:pointer"' : '';
+    gridHTML += '<div class="' + cls + '"' + dataAttr + cursorStyle + '>' + inner + '</div>';
   });
 
   gridHTML += '</div>';
   wrap.innerHTML = headerHTML + gridHTML;
+
+  // Event delegation — admin tap on day cell
+  if (currentPosition === "administrator") {
+    wrap.querySelectorAll(".cal-day[data-day]").forEach(cell => {
+      cell.addEventListener("click", () => {
+        openEditModal(
+          parseInt(cell.dataset.day),
+          cell.dataset.smena || "",
+          parseFloat(cell.dataset.hours) || 0,
+          parseFloat(cell.dataset.upl)   || 0
+        );
+      });
+    });
+  }
 }
 
 
