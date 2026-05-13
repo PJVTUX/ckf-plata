@@ -261,45 +261,46 @@ header {
   max-width: 160px;
 }
 .cal-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
 }
 .cal-dow {
-  text-align: center; font-size: 10px; font-weight: 700;
-  color: #888; padding: 2px 0 4px;
+  text-align: center; font-size: 11px; font-weight: 700;
+  color: #888; padding: 2px 0 6px;
   text-transform: uppercase;
 }
 .cal-day {
-  aspect-ratio: 1; border-radius: 8px;
+  aspect-ratio: 1; border-radius: 10px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto 1fr auto;
-  padding: 3px 4px;
+  padding: 5px 6px 4px;
   background: #f0f0f5; cursor: default;
   overflow: hidden; box-sizing: border-box;
 }
-.cal-day.smena1  { background: #FFFACD; }
-.cal-day.smena2  { background: #DDEEFF; }
-.cal-day.bolestan{ background: #C8F0C8; }
-.cal-day.slobodan{ background: #FFD5D5; }
+.cal-day.smena1  { background: #FFF8C5; }
+.cal-day.smena2  { background: #D6EEFF; }
+.cal-day.bolestan{ background: #C3EDCC; }
+.cal-day.slobodan{ background: #FFD8D8; }
 .cal-day.empty   { background: transparent; }
 .cal-num {
   grid-column: 1; grid-row: 1;
-  font-size: 10px; font-weight: 700; color: #333;
-  line-height: 1.2; align-self: start;
+  font-size: 12px; font-weight: 800; color: #222;
+  line-height: 1; align-self: start;
 }
 .cal-smena-badge {
   grid-column: 2; grid-row: 1;
-  font-size: 9px; font-weight: 800; color: #555;
-  text-align: right; line-height: 1.2; align-self: start;
+  font-size: 11px; font-weight: 800; color: #444;
+  text-align: right; line-height: 1; align-self: start;
 }
 .cal-hrs {
   grid-column: 1 / -1; grid-row: 2;
-  font-size: 10px; font-weight: 600; color: #333;
+  font-size: 13px; font-weight: 700; color: #111;
   text-align: center; align-self: center;
+  letter-spacing: -0.3px;
 }
 .cal-upl {
   grid-column: 1 / -1; grid-row: 3;
-  font-size: 7px; color: #444;
+  font-size: 9px; font-weight: 600; color: #333;
   text-align: center; align-self: end;
   white-space: nowrap; overflow: hidden;
 }
