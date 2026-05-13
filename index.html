@@ -244,6 +244,55 @@ header {
 
 /* uppercase labels globally */
 .sr-label, .er-label { text-transform:uppercase; letter-spacing:.4px; font-size:11px; }
+
+/* ── Calendar ─────────────────────────────────────────── */
+#calendar-wrap { padding: 12px 16px 0; }
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cal-title {
+  font-size: 15px; font-weight: 700; color: var(--dark);
+  letter-spacing: .4px;
+}
+.cal-emp-select {
+  font-size: 13px; padding: 4px 8px; border-radius: 8px;
+  border: 1.5px solid #ddd; background: #fff; color: var(--dark);
+  max-width: 160px;
+}
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.cal-dow {
+  text-align: center; font-size: 10px; font-weight: 700;
+  color: #888; padding: 2px 0 4px;
+  text-transform: uppercase;
+}
+.cal-day {
+  aspect-ratio: 1; border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: #f0f0f5; cursor: default;
+  position: relative; overflow: hidden;
+}
+.cal-day.smena1  { background: #FFFACD; }
+.cal-day.smena2  { background: #DDEEFF; }
+.cal-day.bolestan{ background: #C8F0C8; }
+.cal-day.slobodan{ background: #FFD5D5; }
+.cal-day.empty   { background: transparent; }
+.cal-num {
+  font-size: 11px; font-weight: 700; color: #333; line-height: 1;
+}
+.cal-hrs {
+  font-size: 9px; color: #555; margin-top: 2px; line-height: 1;
+}
+.cal-loading {
+  text-align: center; color: #aaa; font-size: 13px; padding: 16px 0;
+}
+.cal-smena-badge {
+  font-size: 8px; font-weight: 800; color: #666; line-height: 1;
+}
+
 </style>
 </head>
 <body>
@@ -294,6 +343,7 @@ header {
     </div>
   </header>
 
+  <div id="calendar-wrap"></div>
   <div class="period-tabs" id="period-tabs"></div>
   <div class="salary-wrap" id="salary-wrap"></div>
   <div class="footer-note">CKF Restaurant · Podaci su povjerljivi</div>
@@ -394,6 +444,9 @@ function showApp() {
     }
   }
 }
+
+  // Load calendar
+  fetchCalendar(calendarEmployee || '');
 
 function renderTabs(records) {
   const tabs = document.getElementById("period-tabs");
@@ -584,6 +637,102 @@ function logout() {
 }
 
 // ─── CONFIG ──────────────────────────────────────────────────────────
+
+// ─── CALENDAR ─────────────────────────────────────────────────────────
+let calendarEmployee = "";   // currently displayed employee name
+
+async function fetchCalendar(targetName) {
+  const wrap = document.getElementById("calendar-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="cal-loading">⏳ Učitavanje rasporeda…</div>';
+
+  const target = targetName || "";
+  try {
+    const url = customUrl +
+      "?action=calendar&pin=" + encodeURIComponent(currentPin) +
+      (target ? "&target=" + encodeURIComponent(target) : "") +
+      "&ts=" + Date.now();
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (data.error && !data.days) {
+      wrap.innerHTML = '<div class="cal-loading">📅 ' + data.error + '</div>';
+      return;
+    }
+    renderCalendar(data);
+  } catch(e) {
+    wrap.innerHTML = '<div class="cal-loading">❌ Greška rasporeda</div>';
+  }
+}
+
+function renderCalendar(data) {
+  const wrap = document.getElementById("calendar-wrap");
+  if (!wrap) return;
+
+  const days      = data.days      || [];
+  const month     = data.month     || "";
+  const employee  = data.employee  || "";
+  const employees = data.employees || [];
+  calendarEmployee = employee;
+
+  // ── Header ─────────────────────────────────────────────────────────
+  let headerHTML = '<div class="cal-header">';
+  headerHTML += '<span class="cal-title">📅 ' + month + '</span>';
+
+  if (employees.length > 0) {
+    headerHTML += '<select class="cal-emp-select" onchange="fetchCalendar(this.value)">';
+    employees.forEach(name => {
+      const sel = name === employee ? ' selected' : '';
+      headerHTML += '<option value="' + name + '"' + sel + '>' + name + '</option>';
+    });
+    headerHTML += '</select>';
+  }
+  headerHTML += '</div>';
+
+  // ── Day-of-week headers ────────────────────────────────────────────
+  const DOW = ["PON","UTO","SRE","ČET","PET","SUB","NED"];
+  let gridHTML = '<div class="cal-grid">';
+  DOW.forEach(d => { gridHTML += '<div class="cal-dow">' + d + '</div>'; });
+
+  // ── Find offset for day 1 ──────────────────────────────────────────
+  const DOW_MAP = { PON:0, UTO:1, SRE:2, CET:3, "ČET":3, PET:4, SUB:5, NED:6 };
+  let offset = 0;
+  if (days.length > 0) {
+    const firstName = days[0].name.replace(/\d/g, "").trim().toUpperCase();
+    offset = DOW_MAP[firstName] !== undefined ? DOW_MAP[firstName] : 0;
+  }
+
+  // ── Empty cells before day 1 ───────────────────────────────────────
+  for (let i = 0; i < offset; i++) {
+    gridHTML += '<div class="cal-day empty"></div>';
+  }
+
+  // ── Day cells ──────────────────────────────────────────────────────
+  days.forEach(day => {
+    const smena  = String(day.smena || "").trim().toUpperCase();
+    const hours  = day.hours || 0;
+    let cls = "cal-day";
+
+    if      (smena === "1")  cls += " smena1";
+    else if (smena === "2")  cls += " smena2";
+    else if (smena === "B")  cls += " bolestan";
+    else if (smena === "")   cls += " slobodan";
+    else                     cls += " smena1";   // fallback
+
+    let inner = '<span class="cal-num">' + day.num + '</span>';
+    if (smena && smena !== "") {
+      inner += '<span class="cal-smena-badge">' +
+                (smena === "B" ? "B" : smena) + '</span>';
+    }
+    if (hours > 0) {
+      inner += '<span class="cal-hrs">' + hours + 'h</span>';
+    }
+    gridHTML += '<div class="' + cls + '">' + inner + '</div>';
+  });
+
+  gridHTML += '</div>';
+  wrap.innerHTML = headerHTML + gridHTML;
+}
+
 function showCfg() { document.getElementById("modal-cfg").classList.add("show"); document.getElementById("cfg-url").value = customUrl; }
 function hideCfg() { document.getElementById("modal-cfg").classList.remove("show"); }
 function bgClose(e, id) { if (e.target.id === id) hideCfg(); }
