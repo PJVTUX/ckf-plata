@@ -403,6 +403,7 @@ async function keySubmit() {
     const data = await res.json();
     if (data.error) { setError(data.error); pinValue = ""; updateDots(); return; }
     employeeData = data;
+    currentPin = pinValue;
     showApp();
   } catch(e) {
     setError("Greška veze. Provjerite URL.");
