@@ -321,6 +321,66 @@ header {
   text-align: center; color: #aaa; font-size: 13px; padding: 16px 0;
 }
 
+
+/* ── Edit Day Modal ───────────────────────────────────────────────── */
+.edit-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end;
+  z-index: 2000;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.edit-overlay.show { opacity: 1; pointer-events: all; }
+.edit-sheet {
+  background: #fff; border-radius: 20px 20px 0 0;
+  padding: 20px 20px 36px; width: 100%;
+  box-shadow: 0 -4px 32px rgba(0,0,0,.18);
+  transform: translateY(30px);
+  transition: transform .2s;
+}
+.edit-overlay.show .edit-sheet { transform: translateY(0); }
+.edit-title {
+  font-size: 16px; font-weight: 800; color: var(--dark);
+  margin-bottom: 18px; text-align: center;
+}
+.edit-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.edit-label {
+  font-size: 13px; font-weight: 600; color: #666;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.smena-btns { display: flex; gap: 7px; }
+.smena-btn {
+  width: 42px; height: 42px; border-radius: 10px;
+  border: 2px solid #ddd; background: #f5f5f5;
+  font-size: 14px; font-weight: 800; color: #555;
+  cursor: pointer; transition: all .15s;
+}
+.smena-btn.active-P { background: #FFF8C5; border-color: #e0c800; color: #333; }
+.smena-btn.active-D { background: #D6EEFF; border-color: #4aabf7; color: #333; }
+.smena-btn.active-B { background: #C3EDCC; border-color: #3ab35a; color: #333; }
+.smena-btn.active-S { background: #FFD8D8; border-color: #e05a5a; color: #333; }
+.smena-btn.active-  { background: #eee;    border-color: #aaa;    color: #666; }
+.edit-input {
+  width: 130px; height: 42px; border-radius: 10px;
+  border: 2px solid #ddd; padding: 0 12px;
+  font-size: 15px; font-weight: 700; color: var(--dark);
+  text-align: right; box-sizing: border-box;
+}
+.edit-input:focus { border-color: var(--accent); outline: none; }
+.edit-actions { display: flex; gap: 10px; margin-top: 20px; }
+.edit-btn {
+  flex: 1; height: 48px; border-radius: 12px; border: none;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.edit-btn-save { background: var(--dark); color: #fff; }
+.edit-btn-cancel { background: #f0f0f5; color: #555; }
+.edit-saving { opacity: .6; pointer-events: none; }
+
 </style>
 </head>
 <body>
@@ -765,11 +825,89 @@ function renderCalendar(data) {
     } else {
       inner += '<span class="cal-upl"></span>';
     }
-    gridHTML += '<div class="' + cls + '">' + inner + '</div>';
+    // Admin: tap to edit
+    const clickAttr = (currentPosition === "administrator")
+      ? ' onclick="openEditModal(' + day.num + ','' + smena + '',' + hours + ',' + (day.upl||0) + ')" style="cursor:pointer"'
+      : '';
+    gridHTML += '<div class="' + cls + '"' + clickAttr + '>' + inner + '</div>';
   });
 
   gridHTML += '</div>';
   wrap.innerHTML = headerHTML + gridHTML;
+}
+
+
+// ─── EDIT DAY MODAL ───────────────────────────────────────────────────
+let editDayNum    = 0;
+let editSmena     = "";
+
+function openEditModal(dayNum, smena, hours, upl) {
+  if (currentPosition !== "administrator") return;
+  editDayNum = dayNum;
+  editSmena  = smena || "";
+
+  document.getElementById("edit-title").textContent =
+    (calendarEmployee || "") + " — день " + dayNum;
+  document.getElementById("edit-hours").value = hours > 0 ? hours : "";
+  document.getElementById("edit-upl").value   = upl   > 0 ? upl   : "";
+
+  // Highlight active smena button
+  ["P","D","B","S",""].forEach(v => {
+    const btn = document.getElementById("sb-" + v);
+    if (btn) btn.className = "smena-btn" + (v === editSmena ? " active-" + v : "");
+  });
+
+  document.getElementById("edit-overlay").classList.add("show");
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById("edit-overlay")) return;
+  document.getElementById("edit-overlay").classList.remove("show");
+}
+
+function pickSmena(v) {
+  editSmena = v;
+  ["P","D","B","S",""].forEach(s => {
+    const btn = document.getElementById("sb-" + s);
+    if (btn) btn.className = "smena-btn" + (s === v ? " active-" + s : "");
+  });
+}
+
+async function saveDay() {
+  const hours = document.getElementById("edit-hours").value.trim();
+  const upl   = document.getElementById("edit-upl").value.trim();
+  const btn   = document.getElementById("edit-save-btn");
+
+  btn.textContent = "Čuvanje…";
+  btn.classList.add("edit-saving");
+
+  try {
+    const url = customUrl +
+      "?action=save" +
+      "&pin="      + encodeURIComponent(currentPin) +
+      "&target="   + encodeURIComponent(calendarEmployee) +
+      "&day="      + editDayNum +
+      "&smena="    + encodeURIComponent(editSmena) +
+      "&hours="    + encodeURIComponent(hours) +
+      "&upl="      + encodeURIComponent(upl) +
+      "&ts="       + Date.now();
+
+    const res  = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+
+    if (data.error) {
+      alert("Greška: " + data.error);
+    } else {
+      document.getElementById("edit-overlay").classList.remove("show");
+      // Refresh calendar
+      fetchCalendar(calendarEmployee);
+    }
+  } catch(err) {
+    alert("Greška veze");
+  } finally {
+    btn.textContent = "Sačuvaj";
+    btn.classList.remove("edit-saving");
+  }
 }
 
 function showCfg() { document.getElementById("modal-cfg").classList.add("show"); document.getElementById("cfg-url").value = customUrl; }
@@ -780,5 +918,39 @@ function saveCfg() { customUrl = document.getElementById("cfg-url").value.trim()
 // ─── INIT ─────────────────────────────────────────────────────────────
 document.getElementById("cfg-url").value = customUrl;
 </script>
+
+<!-- Edit Day Modal -->
+<div class="edit-overlay" id="edit-overlay" onclick="closeEditModal(event)">
+  <div class="edit-sheet">
+    <div class="edit-title" id="edit-title">День 1</div>
+
+    <div class="edit-row">
+      <span class="edit-label">Смена</span>
+      <div class="smena-btns">
+        <button class="smena-btn" id="sb-P" onclick="pickSmena('P')">P</button>
+        <button class="smena-btn" id="sb-D" onclick="pickSmena('D')">D</button>
+        <button class="smena-btn" id="sb-B" onclick="pickSmena('B')">B</button>
+        <button class="smena-btn" id="sb-S" onclick="pickSmena('S')">S</button>
+        <button class="smena-btn" id="sb-"  onclick="pickSmena('')">—</button>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <span class="edit-label">Часов</span>
+      <input class="edit-input" id="edit-hours" type="number" min="0" max="24" step="0.5" placeholder="0">
+    </div>
+
+    <div class="edit-row">
+      <span class="edit-label">Uplaćeno</span>
+      <input class="edit-input" id="edit-upl" type="number" min="0" step="10" placeholder="0">
+    </div>
+
+    <div class="edit-actions">
+      <button class="edit-btn edit-btn-cancel" onclick="closeEditModal()">Otkaži</button>
+      <button class="edit-btn edit-btn-save" id="edit-save-btn" onclick="saveDay()">Sačuvaj</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
