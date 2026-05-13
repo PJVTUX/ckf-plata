@@ -443,10 +443,15 @@ function showApp() {
         '<div class="state-msg"><span class="ico">📋</span>Nema podataka za prikaz</div>';
     }
   }
+
+  // Calendar: worker and administrator only (owner sees summary only)
+  if (currentPosition === "worker" || currentPosition === "administrator") {
+    fetchCalendar(calendarEmployee || "");
+  } else {
+    document.getElementById("calendar-wrap").innerHTML = "";
+  }
 }
 
-  // Load calendar
-  fetchCalendar(calendarEmployee || '');
 
 function renderTabs(records) {
   const tabs = document.getElementById("period-tabs");
@@ -712,19 +717,22 @@ function renderCalendar(data) {
     const hours  = day.hours || 0;
     let cls = "cal-day";
 
-    if      (smena === "1")  cls += " smena1";
-    else if (smena === "2")  cls += " smena2";
+    if      (smena === "P")  cls += " smena1";
+    else if (smena === "D")  cls += " smena2";
     else if (smena === "B")  cls += " bolestan";
-    else if (smena === "")   cls += " slobodan";
-    else                     cls += " smena1";   // fallback
+    else if (smena === "S")  cls += " slobodan";
+    // empty = no data, stays default grey
 
     let inner = '<span class="cal-num">' + day.num + '</span>';
-    if (smena && smena !== "") {
-      inner += '<span class="cal-smena-badge">' +
-                (smena === "B" ? "B" : smena) + '</span>';
+    if (smena) {
+      inner += '<span class="cal-smena-badge">' + smena + '</span>';
     }
     if (hours > 0) {
       inner += '<span class="cal-hrs">' + hours + 'h</span>';
+    }
+    const upl = day.upl || 0;
+    if (upl > 0) {
+      inner += '<span class="cal-hrs">' + upl.toLocaleString("sr-RS") + '</span>';
     }
     gridHTML += '<div class="' + cls + '">' + inner + '</div>';
   });
