@@ -272,7 +272,7 @@ header {
   aspect-ratio: 1; border-radius: 10px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   padding: 5px 6px 4px;
   background: #f0f0f5; cursor: default;
   overflow: hidden; box-sizing: border-box;
@@ -314,6 +314,12 @@ header {
 .cal-upl {
   grid-column: 1 / -1; grid-row: 3;
   font-size: 11px; font-weight: 800; color: #222;
+  text-align: center; align-self: end;
+  white-space: nowrap; overflow: hidden;
+}
+.cal-god {
+  grid-column: 1 / -1; grid-row: 4;
+  font-size: 10px; font-weight: 800; color: var(--blue);
   text-align: center; align-self: end;
   white-space: nowrap; overflow: hidden;
 }
@@ -824,6 +830,10 @@ function renderCalendar(data) {
       inner += '<span class="cal-upl">' + Math.round(upl).toLocaleString("de-DE") + '</span>';
     } else {
       inner += '<span class="cal-upl"></span>';
+    }
+    const god = day.god || 0;
+    if (god > 0) {
+      inner += '<span class="cal-god">G:' + Math.round(god).toLocaleString("de-DE") + '</span>';
     }
     const isAdmin = currentPosition === "administrator";
     const dataAttr = isAdmin
