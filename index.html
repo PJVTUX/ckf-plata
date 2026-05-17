@@ -833,7 +833,7 @@ function renderCalendar(data) {
     }
     const god = day.god || 0;
     if (god > 0) {
-      inner += '<span class="cal-god">G:' + Math.round(god).toLocaleString("de-DE") + '</span>';
+      inner += '<span class="cal-god">' + Math.round(god).toLocaleString("de-DE") + '</span>';
     }
     const isAdmin = currentPosition === "administrator";
     const dataAttr = isAdmin
