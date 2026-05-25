@@ -204,6 +204,9 @@ header {
   text-transform:uppercase; letter-spacing:.5px; white-space:nowrap;
 }
 .badge-worker        { background:rgba(255,255,255,.18); color:rgba(255,255,255,.85); }
+.emp-card-selectable { cursor:pointer; transition:opacity .15s; }
+.emp-card-selectable:active { opacity:.7; }
+.back-btn { color:var(--accent) !important; border-color:var(--accent) !important; }
 .badge-administrator { background:var(--yellow); color:#1c1c1e; }
 .badge-owner         { background:var(--accent);  color:#fff; }
 
@@ -463,6 +466,7 @@ let currentPin = "";
 let employeeData = null; // { radnik, position, records: [...] }
 let activePeriod = "";
 let currentPosition = "worker";
+let selectedEmployee = null;
 
 // ─── PIN LOGIC ───────────────────────────────────────────────────────
 let pinValue = "";
@@ -526,21 +530,13 @@ function showApp() {
         '<div class="state-msg"><span class="ico">📋</span>Nema podataka za prikaz</div>';
     }
   } else {
-    // Admin / Owner — see all employees
-    const periods = [...new Set(records.map(r => r.period))]
-      .sort((a, b) => String(b).localeCompare(String(a)));
-    renderTabsAdmin(periods);
-    if (periods.length > 0) {
-      activePeriod = periods[0];
-      renderPeriodAdmin(activePeriod);
-    } else {
-      document.getElementById("salary-wrap").innerHTML =
-        '<div class="state-msg"><span class="ico">📋</span>Nema podataka za prikaz</div>';
-    }
+    // Admin / Owner — employee list, click to drill down
+    selectedEmployee = null;
+    renderEmployeeList();
   }
 
-  // Calendar: worker and administrator only (owner sees summary only)
-  if (currentPosition === "worker" || currentPosition === "administrator") {
+  // Calendar: worker only on initial view; shown per-employee when drilling down
+  if (currentPosition === "worker") {
     fetchCalendar(calendarEmployee || "");
   } else {
     document.getElementById("calendar-wrap").innerHTML = "";
@@ -665,6 +661,146 @@ function renderPeriodAdmin(period) {
 
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+// ─── ADMIN / OWNER: EMPLOYEE LIST ────────────────────────────────────
+function renderEmployeeList() {
+  const records = employeeData.records || [];
+  // Get unique employees (keep latest record per employee for badge)
+  const empMap = {};
+  for (const rec of records) {
+    if (!empMap[rec.radnik] || String(rec.period) > String(empMap[rec.radnik].period)) {
+      empMap[rec.radnik] = rec;
+    }
+  }
+  const employees = Object.values(empMap);
+
+  document.getElementById("period-tabs").innerHTML = "";
+  document.getElementById("calendar-wrap").innerHTML = "";
+
+  const BADGE_MAP = { administrator: "administrator", owner: "owner", worker: "worker" };
+  let html = '<div class="admin-wrap">';
+
+  for (const rec of employees) {
+    const posKey = (rec.position || "worker").toLowerCase();
+    const badgeClass = "badge-" + (BADGE_MAP[posKey] || "worker");
+    const safeName = (rec.radnik || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    html += `
+    <div class="emp-card emp-card-selectable" onclick="openEmployeeMonths('${safeName}')">
+      <div class="emp-card-header">
+        <span class="emp-card-name">${rec.radnik || "—"}</span>
+        <span class="emp-card-badge ${badgeClass}">${posKey.toUpperCase()}</span>
+      </div>
+    </div>`;
+  }
+
+  // Debt table from most recent period
+  const periods = [...new Set(records.map(r => r.period))].sort((a, b) => String(b).localeCompare(String(a)));
+  if (periods.length > 0) {
+    const latestRecs = records.filter(r => r.period === periods[0]);
+    const totD = latestRecs.reduce((s, r) => s + (parseFloat(r.DUG) || 0), 0);
+    html += `<div class="dug-table">
+      <div class="dug-table-hdr">DUGOVI ZA PLATU — ${formatPeriod(periods[0])}</div>`;
+    for (const rec of latestRecs) {
+      const d = parseFloat(rec.DUG) || 0;
+      if (d > 0) {
+        html += `<div class="dug-row">
+          <span class="dr-name">${rec.radnik}</span>
+          <span class="dr-val">${fmt(d)} €</span>
+        </div>`;
+      }
+    }
+    html += `<div class="dug-row total">
+      <span class="dr-name">UKUPNO</span>
+      <span class="dr-val">${fmt(totD)} €</span>
+    </div></div>`;
+  }
+
+  html += '</div>';
+  document.getElementById("salary-wrap").innerHTML = html;
+}
+
+function openEmployeeMonths(name) {
+  selectedEmployee = name;
+  const records = (employeeData.records || []).filter(r => r.radnik === name);
+  const periods = records.map(r => r.period).sort((a, b) => String(b).localeCompare(String(a)));
+
+  // Back button + period tabs
+  const tabs = document.getElementById("period-tabs");
+  tabs.innerHTML = "";
+  const backBtn = document.createElement("button");
+  backBtn.className = "period-tab back-btn";
+  backBtn.textContent = "← Nazad";
+  backBtn.onclick = () => { selectedEmployee = null; renderEmployeeList(); };
+  tabs.appendChild(backBtn);
+
+  periods.forEach((p, i) => {
+    const btn = document.createElement("button");
+    btn.className = "period-tab" + (i === 0 ? " active" : "");
+    btn.textContent = formatPeriod(p);
+    btn.onclick = () => {
+      tabs.querySelectorAll(".period-tab:not(.back-btn)").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      activePeriod = p;
+      renderEmployeeMonthView(name, p);
+    };
+    tabs.appendChild(btn);
+  });
+
+  if (periods.length > 0) {
+    activePeriod = periods[0];
+    renderEmployeeMonthView(name, periods[0]);
+    if (currentPosition === "administrator") fetchCalendar(name);
+  } else {
+    document.getElementById("salary-wrap").innerHTML =
+      '<div class="state-msg"><span class="ico">📋</span>Nema podataka za prikaz</div>';
+  }
+}
+
+function renderEmployeeMonthView(name, period) {
+  const rec = (employeeData.records || []).find(r => r.radnik === name && r.period === period);
+  if (!rec) return;
+  const wrap = document.getElementById("salary-wrap");
+  const dug = parseFloat(rec.DUG) || 0;
+  const isPaid = dug <= 0;
+
+  wrap.innerHTML = `
+    <div class="salary-card">
+      <div class="salary-header">
+        <div class="salary-period">${formatPeriod(period)}</div>
+        <div class="salary-name">${name}</div>
+      </div>
+      <div class="salary-rows">
+        ${rec.PLATA ? `<div class="salary-row">
+          <span class="sr-label">PLATA</span>
+          <span class="sr-val">${fmt(rec.PLATA)} €</span>
+        </div>` : ""}
+        ${rec.satnica ? `<div class="salary-row">
+          <span class="sr-label">SATNICA</span>
+          <span class="sr-val">${rec.satnica}</span>
+        </div>` : ""}
+        ${rec.ODRADJENO ? `<div class="salary-row">
+          <span class="sr-label">ODRADJENO</span>
+          <span class="sr-val">${fmt(rec.ODRADJENO)} H</span>
+        </div>` : ""}
+        <div class="salary-row zaradjeno">
+          <span class="sr-label">ZARADJENO</span>
+          <span class="sr-val">${fmt(rec.ZARADJENO)} €</span>
+        </div>
+        <div class="salary-row">
+          <span class="sr-label">UPLACENO</span>
+          <span class="sr-val">${fmt(rec.UPLACENO)} €</span>
+        </div>
+        <div class="salary-row dug ${isPaid ? "paid" : ""}">
+          <span class="sr-label">DUG</span>
+          <span class="sr-val">${fmt(Math.abs(dug))} €</span>
+        </div>
+        ${rec.GODISNJI ? `<div class="salary-row godisnji">
+          <span class="sr-label">GODISNJI</span>
+          <span class="sr-val">${fmt(rec.GODISNJI)} €</span>
+        </div>` : ""}
+      </div>
+    </div>`;
 }
 
 // ─── WORKER PERIOD VIEW ───────────────────────────────────────────────
