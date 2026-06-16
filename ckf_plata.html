@@ -147,6 +147,10 @@ body.dark-theme .dug-row { border-color:#2a2a3a; }
 body.dark-theme .dug-row.total { background:#2a1a1a; }
 body.dark-theme .emp-rows { background:#1c1c28; }
 body.dark-theme .emp-row { border-color:#2a2a3a; }
+body.dark-theme .salary-row.zaradjeno,
+body.dark-theme .salary-row.dug { background:#1a1a2e; }
+body.dark-theme .emp-row.zaradjeno,
+body.dark-theme .emp-row.dug { background:#1a1a2e; }
 body.dark-theme .sheet h3 { color:#f2f2f7; }
 body.dark-theme .footer-note { color:#555; }
 body.dark-theme .cal-emp-select { background:#2a2a3a; color:#f2f2f7; border-color:#3a3a5a; }
@@ -154,7 +158,7 @@ body.dark-theme .cal-emp-select { background:#2a2a3a; color:#f2f2f7; border-colo
 /* ── ACCORDION CALENDAR IN EMP CARD ─────────────── */
 .emp-card-header { cursor:pointer; }
 .emp-cal-wrap {
-  display:none; border-top:1px solid var(--sep);
+  display:none; border-bottom:1px solid var(--sep);
   padding:10px 10px 8px; background:#f8f8fc;
 }
 body.dark-theme .emp-cal-wrap { background:#16162a; }
@@ -690,6 +694,7 @@ function renderPeriodAdmin(period) {
         <span class="emp-card-name">${rec.radnik || "—"}</span>
         <span class="emp-card-badge ${badgeClass}">${posKey.toUpperCase()}</span>
       </div>
+      <div class="emp-cal-wrap" id="ecal-${empId}"></div>
       <div class="emp-rows">
         ${rec.PLATA ? `<div class="emp-row">
           <span class="er-label">PLATA</span>
@@ -720,7 +725,6 @@ function renderPeriodAdmin(period) {
           <span class="er-val">${fmt(rec.GODISNJI)} €</span>
         </div>` : ""}
       </div>
-      <div class="emp-cal-wrap" id="ecal-${empId}"></div>
     </div>`;
   }
 
