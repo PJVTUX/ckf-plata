@@ -161,6 +161,15 @@ body.dark-theme .cal-emp-select { background:#2a2a3a; color:#f2f2f7; border-colo
   display:none; border-bottom:1px solid var(--sep);
   padding:10px 10px 8px; background:#f8f8fc;
 }
+@media (max-width: 500px) {
+  .emp-cal-wrap { padding:4px 4px 6px; }
+  .emp-cal-wrap .cal-grid { gap:2px; }
+  .emp-cal-wrap .cal-day { padding:3px 2px; min-height:62px; }
+  .emp-cal-wrap .cal-upl { font-size:9px; }
+  .emp-cal-wrap .cal-hrs { font-size:11px; }
+  .emp-cal-wrap .cal-num { font-size:10px; }
+  .emp-cal-wrap .cal-smena-badge { font-size:9px; }
+}
 body.dark-theme .emp-cal-wrap { background:#16162a; }
 .emp-cal-wrap.open { display:block; }
 .emp-cal-wrap .cal-title {
@@ -456,6 +465,13 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
 .edit-saving { opacity: .6; pointer-events: none; }
 
 </style>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    });
+  }
+</script>
 </head>
 <body>
 
