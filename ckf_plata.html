@@ -165,9 +165,9 @@ body.dark-theme .cal-emp-select { background:#2a2a3a; color:#f2f2f7; border-colo
   .emp-cal-wrap { padding:4px 4px 6px; }
   .emp-cal-wrap .cal-grid { gap:2px; }
   .emp-cal-wrap .cal-day { padding:3px 2px; min-height:62px; }
-  .admin-wrap { padding:8px 8px; }
-  .salary-wrap { padding:8px 8px; }
-  #calendar-wrap { padding:8px 8px 0; }
+  .admin-wrap { padding:0 4px 8px; }
+  .salary-wrap { padding:4px 4px; }
+  #calendar-wrap { padding:4px 4px 0; }
 }
 body.dark-theme .emp-cal-wrap { background:#16162a; }
 .emp-cal-wrap.open { display:block; }
@@ -1176,4 +1176,25 @@ function bgClose(e, id) {
         <button class="smena-btn" id="sb-D" onclick="pickSmena('D')">D</button>
         <button class="smena-btn" id="sb-B" onclick="pickSmena('B')">B</button>
         <button class="smena-btn" id="sb-S" onclick="pickSmena('S')">S</button>
-        <                                                                           
+        <button class="smena-btn" id="sb-" onclick="pickSmena('')">&mdash;</button>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <span class="edit-label">Часов</span>
+      <input class="edit-input" id="edit-hours" type="number" min="0" max="24" step="0.5" placeholder="0">
+    </div>
+
+    <div class="edit-row">
+      <span class="edit-label">Uplaćeno</span>
+      <input class="edit-input" id="edit-upl" type="number" min="0" step="10" placeholder="0">
+    </div>
+
+    <div class="modal-btns">
+      <button class="edit-btn edit-btn-cancel" onclick="closeEditModal()">Otkaži</button>
+      <button class="edit-btn edit-btn-save" id="edit-save-btn" onclick="saveDay()">Sačuvaj</button>
+    </div>
+  </div>
+</div>
+
+</body>
