@@ -1,4 +1,4 @@
-const CACHE = "ckf-plata-v1";
+const CACHE = "ckf-plata-v3";
 const ASSETS = ["./ckf_plata.html"];
 
 self.addEventListener("install", e => {
