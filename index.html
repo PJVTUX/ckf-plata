@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#e31e24">
+<meta name="theme-color" content="#1c1c1e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -37,9 +37,9 @@ body {
 
 /* ── HEADER ─────────────────────────────────────── */
 header {
-  background:var(--red); padding:14px 16px 12px;
+  background:#1c1c1e; padding:14px 16px 12px;
   position:sticky; top:0; z-index:100;
-  box-shadow:0 2px 12px rgba(227,30,36,.35);
+  box-shadow:0 2px 12px rgba(0,0,0,.35);
 }
 .h-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
 .h-logo { display:flex; align-items:center; gap:8px; }
@@ -161,6 +161,31 @@ header {
   user-select:none;
 }
 
+/* ── QUANTITY ─────────────────────────────────── */
+.item-qty {
+  flex-shrink:0; min-width:48px; padding:0 6px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; border-left:1px solid var(--sep);
+  -webkit-tap-highlight-color:transparent;
+}
+.item-qty:active { background:#f5f5f5; }
+.qty-chip {
+  background:var(--needed-bg); color:var(--needed-bdr);
+  border:1.5px solid var(--needed-bdr); border-radius:8px;
+  padding:3px 7px; font-size:12px; font-weight:800;
+  white-space:nowrap; max-width:64px; overflow:hidden; text-overflow:ellipsis;
+}
+.qty-chip.empty {
+  background:transparent; border-color:#d1d1d6; color:#c0c0c5;
+  font-size:18px; font-weight:300; letter-spacing:.5px;
+}
+.qty-input-field {
+  width:100%; border:1.5px solid var(--sep); border-radius:12px;
+  padding:14px; font-size:16px; color:var(--text); outline:none;
+  margin-bottom:16px; background:#fafafa; -webkit-appearance:none;
+}
+.qty-input-field:focus { border-color:var(--red); background:#fff; }
+
 /* Drag handle (admin) */
 .drag-handle {
   flex-shrink:0; width:36px;
@@ -238,6 +263,47 @@ header {
 .pin-key.ok  { background:var(--red); color:#fff; }
 .pin-key.ok:active { background:var(--red2); }
 .pin-err { color:var(--red); font-size:13px; font-weight:600; min-height:20px; margin-top:10px; text-align:center; }
+
+/* ── EXPORT ───────────────────────────────────── */
+.export-toggle {
+  display:flex; background:var(--bg); border-radius:10px;
+  padding:3px; margin-bottom:16px; gap:3px;
+}
+.export-toggle button {
+  flex:1; border:none; border-radius:8px; padding:8px 4px;
+  font-size:13px; font-weight:600; cursor:pointer;
+  background:transparent; color:var(--muted); transition:all .15s;
+}
+.export-toggle button.active {
+  background:#fff; color:var(--text);
+  box-shadow:0 1px 4px rgba(0,0,0,.12);
+}
+.export-box {
+  background:var(--bg); border-radius:10px; padding:14px;
+  font-size:13px; line-height:1.8; white-space:pre-wrap;
+  max-height:42vh; overflow-y:auto; color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,monospace;
+  margin-bottom:14px; border:1.5px solid var(--sep);
+  word-break:break-word;
+}
+.export-empty {
+  text-align:center; color:var(--muted); padding:24px 0; font-size:14px;
+}
+.export-actions { display:flex; gap:10px; }
+.share-btn {
+  flex:1; background:#1c1c1e; color:#fff; border:none;
+  border-radius:12px; padding:13px; font-size:15px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.share-btn:active { opacity:.8; }
+.copy-btn {
+  flex:1; background:var(--red); color:#fff; border:none;
+  border-radius:12px; padding:13px; font-size:15px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:background .15s;
+}
+.copy-btn:active { background:var(--red2); }
+.copy-btn.copied { background:#4caf50; }
 </style>
 </head>
 <body>
@@ -328,6 +394,7 @@ header {
       <button class="mbtn cancel" onclick="hideModal('modal-cfg')">Zatvori</button>
       <button class="mbtn danger" onclick="saveCfg()">Sačuvaj</button>
     </div>
+    <button class="mbtn ok" style="width:100%;margin-bottom:10px" onclick="hideModal('modal-cfg');showExport()">📋 Izvezi listu</button>
     <button class="mbtn ok" style="width:100%" onclick="hideModal('modal-cfg');showAdminPin()">🔑 Admin mode</button>
   </div>
 </div>
@@ -363,6 +430,37 @@ header {
 </div>
 
 <!-- Add category -->
+<!-- ── EXPORT MODAL ──────────────────────────── -->
+<div class="overlay" id="modal-export" onclick="bgClose(event,'modal-export')">
+  <div class="sheet">
+    <h3 style="margin-bottom:14px">📋 Izvoz liste</h3>
+    <div class="export-toggle">
+      <button id="exp-btn-needed" class="active" onclick="switchExport(true)">🛒 Samo za kupovinu</button>
+      <button id="exp-btn-all"    class=""       onclick="switchExport(false)">📦 Sve pozicije</button>
+    </div>
+    <div class="export-box" id="export-text-box">
+      <div class="export-empty">Nema stavki za prikaz</div>
+    </div>
+    <div class="export-actions">
+      <button class="share-btn" id="share-btn" onclick="shareExport()">↑ Podeli</button>
+      <button class="copy-btn"  id="copy-btn"  onclick="copyExport()">📋 Kopiraj</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── QUANTITY MODAL ───────────────────── -->
+<div class="overlay" id="modal-qty" onclick="bgClose(event,'modal-qty')">
+  <div class="sheet">
+    <h3 id="qty-item-name" style="margin-bottom:6px;font-size:18px;word-break:break-word"></h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Unesite količinu (npr. 2kg, 3 kom, 500ml)</p>
+    <input class="qty-input-field" type="text" id="qty-input" placeholder="npr. 2kg, 3 kom, 1L" inputmode="text" autocomplete="off" onkeydown="if(event.key==='Enter')saveQty()">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="hideModal('modal-qty')">Otkaži</button>
+      <button class="mbtn ok" onclick="saveQty()">Sačuvaj ✓</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-add-cat" onclick="bgClose(event,'modal-add-cat')">
   <div class="sheet">
     <h3>➕ Nova kategorija</h3>
@@ -658,9 +756,13 @@ function render() {
 function itemRow(catId, item) {
   const bought = !!ST[gk(catId, item, "bought")];
   const needed = !!ST[gk(catId, item, "needed")];
+  const qty    = ST[gk(catId, item, "qty")] || "";
   const cls    = (bought ? "bought " : "") + (needed ? "needed" : "");
   const s      = item.replace(/'/g, "\'");
   const drag   = isAdmin ? `<div class="drag-handle" data-item="${item}">≡</div>` : "";
+  const qtyChip = qty
+    ? `<span class="qty-chip">${qty}</span>`
+    : `<span class="qty-chip empty">+</span>`;
   return `<div class="item ${cls}" data-item="${item}" data-cat="${catId}" draggable="${isAdmin ? 'true' : 'false'}">
     ${drag}
     <div class="item-cross" onclick="toggleBought('${catId}','${s}')">
@@ -671,6 +773,7 @@ function itemRow(catId, item) {
       </div>
     </div>
     <div class="item-name">${item}</div>
+    <div class="item-qty" onclick="openQtyModal('${catId}','${s}')">${qtyChip}</div>
     <div class="item-need" onclick="toggleNeeded('${catId}','${s}')">
       <div class="need-box">
         <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
@@ -783,13 +886,140 @@ function saveOrder(catId, wrap) {
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
+// ─── EXPORT ────────────────────────────────────────────────────────────────────
+let exportNeededOnly = true;
+
+function showExport() {
+  exportNeededOnly = true;
+  document.getElementById("exp-btn-needed").classList.add("active");
+  document.getElementById("exp-btn-all").classList.remove("active");
+  renderExportText();
+  // Show/hide share button based on Web Share API availability
+  document.getElementById("share-btn").style.display =
+    navigator.share ? "flex" : "none";
+  showModal("modal-export");
+}
+
+function switchExport(neededOnly) {
+  exportNeededOnly = neededOnly;
+  document.getElementById("exp-btn-needed").classList.toggle("active", neededOnly);
+  document.getElementById("exp-btn-all").classList.toggle("active", !neededOnly);
+  renderExportText();
+}
+
+function buildExportText(neededOnly) {
+  const cats = getCats();
+  const today = new Date().toLocaleDateString("sr-RS", {day:"2-digit",month:"2-digit",year:"numeric"});
+  const header = neededOnly
+    ? "🛒 LISTA ZA KUPOVINU — " + today
+    : "📦 SVE POZICIJE — " + today;
+  let lines = [header, ""];
+  let totalItems = 0;
+
+  cats.forEach(cat => {
+    const extra = ST[cat.id + "::_extra"] || [];
+    const all   = [...cat.items, ...extra];
+
+    let items = neededOnly
+      ? all.filter(i => ST[gk(cat.id, i, "needed")] && !ST[gk(cat.id, i, "bought")])
+      : all;
+
+    if (items.length === 0) return;
+
+    lines.push(cat.icon + " " + cat.name.toUpperCase() + ":");
+    items.forEach(item => {
+      const qty = ST[gk(cat.id, item, "qty")];
+      const bought = ST[gk(cat.id, item, "bought")];
+      let line = "  • " + item;
+      if (qty) line += " — " + qty;
+      if (!neededOnly && bought) line += " ✓";
+      lines.push(line);
+      totalItems++;
+    });
+    lines.push("");
+  });
+
+  if (totalItems === 0) return null;
+  lines.push("─────────────────────");
+  lines.push("Ukupno: " + totalItems + " stavki");
+  return lines.join("\n");
+}
+
+function renderExportText() {
+  const box = document.getElementById("export-text-box");
+  const text = buildExportText(exportNeededOnly);
+  if (text) {
+    box.innerHTML = "";
+    box.textContent = text;
+  } else {
+    box.innerHTML = '<div class="export-empty">' +
+      (exportNeededOnly ? "Nema stavki označenih za kupovinu" : "Lista je prazna") +
+      '</div>';
+  }
+}
+
+function copyExport() {
+  const text = buildExportText(exportNeededOnly);
+  if (!text) return;
+  const btn = document.getElementById("copy-btn");
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "✓ Kopirano!";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.innerHTML = "📋 Kopiraj";
+      btn.classList.remove("copied");
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+    btn.textContent = "✓ Kopirano!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.innerHTML = "📋 Kopiraj"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+function shareExport() {
+  const text = buildExportText(exportNeededOnly);
+  if (!text || !navigator.share) return;
+  navigator.share({ title: "CKF Nabavka", text });
+}
+
+// ─── QUANTITY ──────────────────────────────────────────────────────────────────
+let qtyTarget = null;
+
+function openQtyModal(catId, item) {
+  qtyTarget = { catId, item };
+  document.getElementById("qty-item-name").textContent = item;
+  document.getElementById("qty-input").value = ST[gk(catId, item, "qty")] || "";
+  showModal("modal-qty");
+  setTimeout(() => document.getElementById("qty-input").focus(), 320);
+}
+
+function saveQty() {
+  if (!qtyTarget) return;
+  const val = document.getElementById("qty-input").value.trim();
+  const k   = gk(qtyTarget.catId, qtyTarget.item, "qty");
+  if (val) ST[k] = val; else delete ST[k];
+  saveLocal(); pushToServer();
+  hideModal("modal-qty");
+  qtyTarget = null;
+  render();
+}
+
 function toggleBought(catId, item) {
   const k = gk(catId, item, "bought");
-  ST[k] = !ST[k]; saveLocal(); schedulePush(); render();
+  ST[k] = !ST[k];
+  if (ST[k]) delete ST[gk(catId, item, "qty")];
+  saveLocal(); render(); pushToServer();
 }
 function toggleNeeded(catId, item) {
   const k = gk(catId, item, "needed");
-  ST[k] = !ST[k]; saveLocal(); schedulePush(); render();
+  ST[k] = !ST[k]; saveLocal(); render(); pushToServer();
 }
 function toggleCat(id) { document.getElementById("cb-" + id).classList.toggle("closed"); }
 function doSearch(v) { searchQ = v; render(); }
