@@ -371,23 +371,49 @@ function ckfsPk(v) {
 }
 
 function ckfsCheckPin() {
-  // Search all employees by PIN value
+  // 1) Search local employee list first (fast, offline)
   var idx = ckfsEmps.findIndex(function(e){ return e.pin === ckfsPinBuf; });
-  if (idx === -1) {
-    document.getElementById('ckfs-pin-err').textContent = 'PIN nije pronađen';
-    ckfsPinBuf = '';
-    for (var i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+  if (idx !== -1) {
+    ckfsLoginAsEmp(ckfsEmps[idx], idx);
     return;
   }
-  var emp = ckfsEmps[idx];
+  // 2) Fallback: validate PIN against plata script
+  var plataUrl = (ckfsCfg.plataUrl || '').trim() ||
+    'https://script.google.com/macros/s/AKfycbznMuXVkU2RfNo34296i5XfV0Kkp9oMlEIskUKgCd3sq66trfNzxgn7VyrVAuWnXr8f/exec';
+  var errEl = document.getElementById('ckfs-pin-err');
+  if (errEl) errEl.textContent = 'Provjera...';
+  var pinSnap = ckfsPinBuf;
+  fetch(plataUrl + '?pin=' + encodeURIComponent(pinSnap) + '&ts=' + Date.now(), {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.radnik) {
+        // Plata recognized this PIN — auto-save for next time
+        var emp = { name: d.radnik, position: d.position || 'worker', pin: pinSnap };
+        var ei = ckfsEmps.findIndex(function(x){ return x.name === emp.name; });
+        if (ei >= 0) { ckfsEmps[ei].pin = pinSnap; } else { ckfsEmps.push(emp); }
+        ckfsSave();
+        ckfsLoginAsEmp(emp, ckfsEmps.length - 1);
+      } else {
+        if (errEl) errEl.textContent = 'PIN nije pronađen';
+        ckfsPinBuf = '';
+        for (var i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+      }
+    })
+    .catch(function(){
+      if (errEl) errEl.textContent = 'PIN nije pronađen';
+      ckfsPinBuf = '';
+      for (var i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+    });
+}
+
+function ckfsLoginAsEmp(emp, idx) {
   var nameEl = document.getElementById('ckfs-sel-name');
   if (nameEl) nameEl.textContent = '👋 ' + emp.name;
-  // PIN correct — create session
   var remember = document.getElementById('ckfs-remember').checked;
-  var session  = {
+  var session = {
     name:      emp.name,
-    position:  emp.position || '',
-    colorIdx:  idx % CKFS_COLORS.length,
+    position:  emp.position || 'worker',
+    colorIdx:  (idx || 0) % CKFS_COLORS.length,
     loginTime: Date.now(),
     remember:  remember
   };
