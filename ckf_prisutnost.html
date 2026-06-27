@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#1c1c1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CKF — Prisutnost</title>
+<style>
+:root {
+  --green:  #2e7d32;
+  --green2: #1b5e20;
+  --green3: #43a047;
+  --red:    #c62828;
+  --red2:   #b71c1c;
+  --blue:   #1565c0;
+  --orange: #e65100;
+  --yellow: #ffd140;
+  --bg:     #f2f2f7;
+  --card:   #ffffff;
+  --text:   #1c1c1e;
+  --muted:  #8e8e93;
+  --sep:    #e8e8ed;
+  --r: 16px;
+}
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text); min-height:100dvh; }
+
+/* ── SCREENS ── */
+.screen { min-height:100dvh; display:flex; flex-direction:column; }
+.screen.hidden { display:none !important; }
+
+/* ── CHECKIN SCREEN ── */
+#scr-checkin { background:var(--bg); }
+
+.ck-header { background:#1c1c1e; padding:52px 20px 28px; text-align:center; }
+.ck-logo   { font-size:22px; font-weight:800; color:#fff; letter-spacing:-.5px; }
+.ck-logo span { color:#e31e24; }
+.ck-sub    { color:rgba(255,255,255,.6); font-size:14px; margin-top:6px; font-weight:500; }
+.ck-date   { color:rgba(255,255,255,.4); font-size:13px; margin-top:4px; }
+
+.ck-body { flex:1; padding:24px 16px; }
+.ck-prompt { text-align:center; font-size:19px; font-weight:700; margin-bottom:20px; color:var(--text); }
+
+.emp-grid { display:flex; flex-direction:column; gap:10px; }
+.emp-card { background:var(--card); border-radius:var(--r); padding:18px 20px;
+  display:flex; align-items:center; gap:14px; cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,.08); border:2px solid transparent;
+  transition:border-color .15s, background .15s; user-select:none; }
+.emp-card:active { background:#f0f0f5; border-color:var(--blue); }
+.emp-avatar { width:48px; height:48px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; font-size:20px; font-weight:700;
+  color:#fff; flex-shrink:0; }
+.emp-name { font-size:18px; font-weight:700; }
+.emp-pos  { font-size:13px; color:var(--muted); margin-top:2px; }
+.emp-arrow { font-size:22px; color:#c7c7cc; margin-left:auto; }
+
+.ck-admin-link { text-align:center; padding:28px 0 16px;
+  font-size:13px; color:var(--muted); cursor:pointer; user-select:none; }
+.ck-admin-link:active { color:var(--text); }
+
+.no-employees { text-align:center; padding:60px 20px; }
+.no-emp-icon  { font-size:64px; margin-bottom:16px; }
+.no-emp-txt   { font-size:17px; font-weight:600; margin-bottom:8px; }
+.no-emp-sub   { font-size:14px; color:var(--muted); line-height:1.6; }
+
+/* ── ACTION SCREEN ── */
+#scr-action { background:var(--bg); }
+
+.ac-header { background:#1c1c1e; padding:52px 20px 24px; display:flex; flex-direction:column; align-items:center; }
+.ac-back { align-self:flex-start; color:rgba(255,255,255,.7); font-size:15px; cursor:pointer; margin-bottom:16px; }
+.ac-back:active { color:#fff; }
+.ac-avatar { width:72px; height:72px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; font-size:30px; font-weight:700;
+  color:#fff; margin-bottom:12px; }
+.ac-name { font-size:22px; font-weight:800; color:#fff; }
+.ac-pos  { font-size:14px; color:rgba(255,255,255,.6); margin-top:4px; }
+
+.ac-body { flex:1; padding:28px 16px; display:flex; flex-direction:column; gap:14px; }
+
+.ac-time-box { background:var(--card); border-radius:var(--r); padding:20px; text-align:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.ac-time-big { font-size:48px; font-weight:700; letter-spacing:-1px; color:var(--text); font-variant-numeric:tabular-nums; }
+.ac-time-date { font-size:14px; color:var(--muted); margin-top:4px; }
+
+.ac-status-box { background:var(--card); border-radius:var(--r); padding:16px 20px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08); display:none; }
+.ac-status-lbl { font-size:13px; color:var(--muted); font-weight:600; }
+.ac-status-val { font-size:16px; font-weight:700; margin-top:4px; color:var(--green2); }
+
+.action-btns { display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+.ac-btn { border:none; border-radius:16px; padding:20px; font-size:19px; font-weight:800;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.15); transition:transform .12s, opacity .12s; }
+.ac-btn:active { transform:scale(.97); opacity:.9; }
+.ac-btn-arrive { background:var(--green); color:#fff; }
+.ac-btn-leave  { background:var(--red); color:#fff; }
+.ac-btn-disabled { background:#e5e5ea; color:var(--muted); box-shadow:none; pointer-events:none; }
+
+/* ── CONFIRM SCREEN ── */
+#scr-confirm { justify-content:center; align-items:center; padding:40px 24px; text-align:center; }
+#scr-confirm.arrive-bg { background:#1b5e20; }
+#scr-confirm.leave-bg  { background:#b71c1c; }
+
+.cf-icon  { font-size:100px; margin-bottom:24px; animation:pop .4s ease; }
+@keyframes pop { 0%{transform:scale(.3);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+.cf-title { font-size:30px; font-weight:800; color:#fff; margin-bottom:10px; }
+.cf-name  { font-size:22px; color:rgba(255,255,255,.85); margin-bottom:6px; }
+.cf-time  { font-size:18px; color:rgba(255,255,255,.7); margin-bottom:32px; }
+.cf-auto  { font-size:15px; color:rgba(255,255,255,.5); }
+.cf-bar   { width:200px; height:4px; background:rgba(255,255,255,.25);
+  border-radius:2px; margin:12px auto 0; overflow:hidden; }
+.cf-fill  { height:100%; background:rgba(255,255,255,.7); border-radius:2px;
+  width:0%; transition:width linear; }
+
+/* ── ADMIN SCREENS ── */
+#scr-pin { background:var(--bg); justify-content:center; align-items:center; padding:40px 24px; }
+
+.pin-card { background:var(--card); border-radius:var(--r); padding:28px 24px; width:100%; max-width:380px;
+  box-shadow:0 4px 24px rgba(0,0,0,.12); }
+.pin-title { font-size:20px; font-weight:800; text-align:center; margin-bottom:20px; }
+.pin-dots  { display:flex; justify-content:center; gap:14px; margin-bottom:20px; }
+.pin-dot   { width:16px; height:16px; border-radius:50%; background:#e5e5ea; transition:background .15s; }
+.pin-dot.filled { background:#1c1c1e; }
+.pin-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:10px; }
+.pin-btn   { background:var(--bg); border:none; border-radius:12px; padding:16px;
+  font-size:24px; font-weight:600; cursor:pointer; }
+.pin-btn:active { background:#e0e0e0; }
+.pin-err   { text-align:center; color:var(--red); font-size:14px; min-height:20px; }
+.pin-back  { text-align:center; margin-top:14px; color:var(--muted); font-size:14px; cursor:pointer; }
+.pin-back:active { color:var(--text); }
+
+/* ── ADMIN PANEL ── */
+#scr-admin { background:var(--bg); overflow-y:auto; }
+
+.adm-header { background:#1c1c1e; padding:52px 16px 12px; position:sticky; top:0; z-index:10; }
+.adm-h-top  { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.adm-title  { font-size:19px; font-weight:800; color:#fff; }
+.adm-exit   { background:rgba(255,255,255,.18); border:1.5px solid rgba(255,255,255,.35);
+  color:#fff; border-radius:20px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+
+.adm-tabs { display:flex; border-top:1px solid rgba(255,255,255,.1); }
+.adm-tab  { flex:1; text-align:center; padding:11px 4px; font-size:13px; font-weight:600;
+  color:rgba(255,255,255,.5); cursor:pointer; border-bottom:2px solid transparent; }
+.adm-tab.active { color:#fff; border-bottom-color:#007aff; }
+
+.adm-section { padding:12px; }
+
+/* Now */
+.stat-row { display:flex; gap:10px; margin-bottom:12px; }
+.stat-box  { flex:1; background:var(--card); border-radius:12px; padding:14px; text-align:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.stat-num  { font-size:36px; font-weight:800; line-height:1; }
+.stat-lbl  { font-size:12px; color:var(--muted); margin-top:4px; font-weight:600; }
+.stat-box.s-green .stat-num { color:var(--green2); }
+.stat-box.s-grey  .stat-num { color:var(--muted); }
+
+.list-card { background:var(--card); border-radius:var(--r); overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:12px; }
+.lc-hdr  { padding:10px 16px; border-bottom:1px solid var(--sep);
+  font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; }
+.lc-row  { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--sep); gap:10px; }
+.lc-row:last-child { border-bottom:none; }
+.lc-av   { width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:15px; font-weight:700; color:#fff; flex-shrink:0; }
+.lc-info { flex:1; }
+.lc-name { font-size:15px; font-weight:700; }
+.lc-sub  { font-size:12px; color:var(--muted); margin-top:2px; }
+.lc-badge { font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; flex-shrink:0; }
+.lc-badge.present { background:#e8f5e9; color:var(--green2); }
+.lc-badge.absent  { background:#f0f0f5; color:var(--muted); }
+.lc-badge.arrive  { background:#e8f5e9; color:var(--green2); }
+.lc-badge.leave   { background:#fde8e8; color:var(--red); }
+
+/* History */
+.per-row { display:flex; gap:6px; padding:10px 0; }
+.per-btn { border:1.5px solid var(--sep); border-radius:20px; padding:5px 14px; font-size:13px;
+  font-weight:600; cursor:pointer; background:var(--card); color:var(--muted); }
+.per-btn.active { background:#1565c0; color:#fff; border-color:#1565c0; }
+.hist-item { background:var(--card); border-radius:var(--r); margin-bottom:10px; overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.hist-hdr  { display:flex; align-items:center; padding:14px 16px; gap:10px; border-bottom:1px solid var(--sep); }
+.hist-total { font-size:14px; font-weight:700; color:var(--blue); margin-left:auto; }
+.hist-day  { display:flex; justify-content:space-between; padding:9px 16px;
+  border-bottom:1px solid var(--sep); font-size:14px; }
+.hist-day:last-child { border-bottom:none; }
+.hist-day-d { color:var(--muted); }
+.hist-day-h { font-weight:700; }
+
+/* Settings */
+.cfg-card  { background:var(--card); border-radius:var(--r); margin-bottom:12px; overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.cfg-hdr   { padding:10px 16px; border-bottom:1px solid var(--sep);
+  font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; }
+.cfg-row   { padding:12px 16px; border-bottom:1px solid var(--sep); }
+.cfg-row:last-child { border-bottom:none; }
+.cfg-lbl   { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:6px; }
+.cfg-inp   { width:100%; border:1.5px solid var(--sep); border-radius:9px; padding:10px 12px;
+  font-size:15px; color:var(--text); outline:none; background:#fafafa; }
+.cfg-inp:focus { border-color:#007aff; background:#fff; }
+.emp-mgr-row { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--sep); gap:10px; }
+.emp-mgr-row:last-child { border-bottom:none; }
+.emp-mgr-av  { width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:15px; font-weight:700; color:#fff; flex-shrink:0; }
+.emp-mgr-info { flex:1; }
+.emp-mgr-name { font-size:15px; font-weight:700; }
+.emp-mgr-pin  { font-size:12px; color:var(--muted); font-family:monospace; }
+.emp-del-btn  { background:none; border:none; color:var(--red); font-size:18px; cursor:pointer; padding:4px 8px; }
+.add-emp-form { display:flex; flex-direction:column; gap:8px; padding:12px 16px; }
+.ae-row { display:flex; gap:8px; }
+.ae-inp { flex:1; border:1.5px solid var(--sep); border-radius:9px; padding:9px 11px;
+  font-size:14px; color:var(--text); outline:none; background:#fafafa; }
+.ae-inp:focus { border-color:#007aff; }
+.ae-btn { background:#1565c0; color:#fff; border:none; border-radius:9px; padding:9px 16px;
+  font-size:14px; font-weight:700; cursor:pointer; }
+.ae-btn:active { background:#0d47a1; }
+
+/* QR */
+.qr-card   { background:var(--card); border-radius:var(--r); padding:24px 16px; text-align:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:12px; }
+.qr-canvas { margin:0 auto 16px; display:block; border-radius:12px; border:8px solid #fff;
+  box-shadow:0 2px 12px rgba(0,0,0,.15); }
+.qr-url    { font-size:12px; color:var(--muted); word-break:break-all; margin-bottom:14px; }
+.qr-hint   { font-size:13px; color:var(--muted); line-height:1.7; }
+
+.btn       { border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:700;
+  cursor:pointer; width:100%; margin-bottom:8px; }
+.btn-blue  { background:#1565c0; color:#fff; }
+.btn-red   { background:var(--red); color:#fff; }
+.btn-grey  { background:#e5e5ea; color:var(--text); }
+.btn:active { opacity:.8; }
+
+.empty { text-align:center; padding:36px 20px; color:var(--muted); font-size:15px; }
+.sync-row { display:flex; align-items:center; gap:6px; justify-content:center; margin-bottom:10px; font-size:12px; color:var(--muted); }
+.sdot { width:7px; height:7px; border-radius:50%; }
+.sdot.ok   { background:#34c759; }
+.sdot.err  { background:#ff5252; }
+.sdot.busy { background:var(--yellow); animation:blink .7s infinite; }
+.sdot.off  { background:#c7c7cc; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+
+/* AVATAR COLORS */
+.av0{background:#e53935} .av1{background:#8e24aa} .av2{background:#1e88e5}
+.av3{background:#00897b} .av4{background:#f4511e} .av5{background:#3949ab}
+.av6{background:#00acc1} .av7{background:#7cb342} .av8{background:#fb8c00}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ CHECK-IN SCREEN ══════════════════ -->
+<div class="screen" id="scr-checkin">
+  <div class="ck-header">
+    <div class="ck-logo">CKF <span>SISTEM</span></div>
+    <div class="ck-sub">Evidentiranje prisutnosti</div>
+    <div class="ck-date" id="ck-date"></div>
+  </div>
+  <div class="ck-body">
+    <div class="ck-prompt">Izaberite vaše ime:</div>
+    <div class="emp-grid" id="emp-grid"></div>
+    <div class="ck-admin-link" onclick="goPin()">⚙ Admin panel</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════ PERSONAL SCREEN (from Hub session) ══════════════════ -->
+<div class="screen hidden" id="scr-personal">
+  <div class="ac-header">
+    <div class="ac-avatar" id="ps-avatar"></div>
+    <div class="ac-name"   id="ps-name"></div>
+    <div class="ac-pos"    id="ps-pos"></div>
+  </div>
+  <div class="ac-body">
+    <div class="ac-time-box">
+      <div class="ac-time-big" id="ps-clock">--:--</div>
+      <div class="ac-time-date" id="ps-date"></div>
+    </div>
+    <div class="ac-status-box" id="ps-status-box">
+      <div class="ac-status-lbl">Na poslu od:</div>
+      <div class="ac-status-val" id="ps-status-val"></div>
+    </div>
+    <div class="action-btns">
+      <button class="ac-btn ac-btn-arrive" id="ps-btn-arrive" onclick="psCheckin('arrive')">
+        ☀️ DOLAZAK — Dolazim na posao
+      </button>
+      <button class="ac-btn ac-btn-leave" id="ps-btn-leave" onclick="psCheckin('leave')">
+        🌙 ODLAZAK — Idem kući
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:20px">
+      <span onclick="showScreen('scr-checkin')" style="font-size:13px;color:var(--muted);cursor:pointer">
+        Niste vi? Izaberi drugo ime →
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ACTION SCREEN ══════════════════ -->
+<div class="screen hidden" id="scr-action">
+  <div class="ac-header">
+    <div class="ac-back" onclick="goBack()">‹ Nazad</div>
+    <div class="ac-avatar" id="ac-avatar"></div>
+    <div class="ac-name" id="ac-name"></div>
+    <div class="ac-pos"  id="ac-pos"></div>
+  </div>
+  <div class="ac-body">
+    <div class="ac-time-box">
+      <div class="ac-time-big" id="ac-clock">--:--</div>
+      <div class="ac-time-date" id="ac-date2"></div>
+    </div>
+    <div class="ac-status-box" id="ac-status-box">
+      <div class="ac-status-lbl">Ste na poslu od:</div>
+      <div class="ac-status-val" id="ac-status-val"></div>
+    </div>
+    <div class="action-btns">
+      <button class="ac-btn ac-btn-arrive" id="btn-arrive" onclick="doCheckin('arrive')">
+        ☀️ DOLAZAK — Dolazim na posao
+      </button>
+      <button class="ac-btn ac-btn-leave" id="btn-leave" onclick="doCheckin('leave')">
+        🌙 ODLAZAK — Idem kući
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ CONFIRM SCREEN ══════════════════ -->
+<div class="screen hidden" id="scr-confirm">
+  <div class="cf-icon" id="cf-icon"></div>
+  <div class="cf-title" id="cf-title"></div>
+  <div class="cf-name"  id="cf-name"></div>
+  <div class="cf-time"  id="cf-time"></div>
+  <div class="cf-auto">Stranica se zatvara automatski...</div>
+  <div class="cf-bar"><div class="cf-fill" id="cf-fill"></div></div>
+</div>
+
+<!-- ══════════════════ PIN SCREEN ══════════════════ -->
+<div class="screen hidden" id="scr-pin">
+  <div class="pin-card">
+    <div class="pin-title">🔑 Admin pristup</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pk('1')">1</button>
+      <button class="pin-btn" onclick="pk('2')">2</button>
+      <button class="pin-btn" onclick="pk('3')">3</button>
+      <button class="pin-btn" onclick="pk('4')">4</button>
+      <button class="pin-btn" onclick="pk('5')">5</button>
+      <button class="pin-btn" onclick="pk('6')">6</button>
+      <button class="pin-btn" onclick="pk('7')">7</button>
+      <button class="pin-btn" onclick="pk('8')">8</button>
+      <button class="pin-btn" onclick="pk('9')">9</button>
+      <div></div>
+      <button class="pin-btn" onclick="pk('0')">0</button>
+      <button class="pin-btn" onclick="pk('del')">⌫</button>
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div class="pin-back" onclick="showScreen('scr-checkin')">‹ Nazad</div>
+  </div>
+</div>
+
+<!-- ══════════════════ ADMIN PANEL ══════════════════ -->
+<div class="screen hidden" id="scr-admin">
+  <div class="adm-header">
+    <div class="adm-h-top">
+      <div class="adm-title">⚙ Admin Panel</div>
+      <button class="adm-exit" onclick="showScreen('scr-checkin')">✕ Izlaz</button>
+    </div>
+    <div class="adm-tabs">
+      <div class="adm-tab active" id="atab-now"  onclick="admTab('now')">🟢 Sada</div>
+      <div class="adm-tab"        id="atab-today" onclick="admTab('today')">📋 Danas</div>
+      <div class="adm-tab"        id="atab-hist"  onclick="admTab('hist')">📊 Istorija</div>
+      <div class="adm-tab"        id="atab-emp"   onclick="admTab('emp')">👥 Zaposleni</div>
+      <div class="adm-tab"        id="atab-qr"    onclick="admTab('qr')">QR</div>
+    </div>
+  </div>
+
+  <!-- NOW -->
+  <div class="adm-section" id="av-now">
+    <div class="sync-row"><div class="sdot off" id="adm-sdot"></div><span id="adm-stxt">–</span></div>
+    <div class="stat-row">
+      <div class="stat-box s-green"><div class="stat-num" id="adm-cnt-p">–</div><div class="stat-lbl">Na poslu</div></div>
+      <div class="stat-box s-grey"> <div class="stat-num" id="adm-cnt-a">–</div><div class="stat-lbl">Odsustvuje</div></div>
+    </div>
+    <div class="list-card" id="adm-list-now"><div class="empty">Učitavanje...</div></div>
+    <button class="btn btn-blue" style="margin-top:4px" onclick="loadAdmNow()">🔄 Osvežiti</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="adm-section hidden" id="av-today">
+    <div class="list-card" id="adm-list-today"><div class="empty">Učitavanje...</div></div>
+    <button class="btn btn-blue" style="margin-top:4px" onclick="loadAdmToday()">🔄 Osvežiti</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="adm-section hidden" id="av-hist">
+    <div class="per-row">
+      <button class="per-btn active" onclick="setPer(7,this)">7 dana</button>
+      <button class="per-btn"        onclick="setPer(14,this)">14 dana</button>
+      <button class="per-btn"        onclick="setPer(30,this)">30 dana</button>
+    </div>
+    <div id="adm-list-hist"><div class="empty">Učitavanje...</div></div>
+  </div>
+
+  <!-- EMPLOYEES -->
+  <div class="adm-section hidden" id="av-emp">
+    <div class="cfg-card">
+      <div class="cfg-hdr">Zaposleni</div>
+      <div id="emp-mgr-list"></div>
+      <div class="add-emp-form">
+        <div class="ae-row">
+          <input class="ae-inp" type="text" id="ae-name" placeholder="Ime i prezime">
+          <input class="ae-inp" type="text" id="ae-pos"  placeholder="Pozicija (opciono)" style="max-width:140px">
+        </div>
+        <button class="ae-btn" onclick="addEmp()" style="width:100%;padding:12px">Dodaj zaposlenog</button>
+      </div>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-hdr">Server (Google Apps Script)</div>
+      <div class="cfg-row">
+        <div class="cfg-lbl">URL</div>
+        <input class="cfg-inp" type="url" id="cfg-url" placeholder="https://script.google.com/...">
+      </div>
+      <div class="cfg-row">
+        <div class="cfg-lbl">Admin PIN</div>
+        <input class="cfg-inp" type="password" id="cfg-pin" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:8px">
+      </div>
+      <div class="cfg-row">
+        <button class="btn btn-blue" onclick="saveCfg()">Sačuvaj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR CODE -->
+  <div class="adm-section hidden" id="av-qr">
+    <div class="qr-card">
+      <canvas id="qr-canvas" class="qr-canvas" width="220" height="220"></canvas>
+      <div class="qr-url" id="qr-url-txt"></div>
+      <div class="qr-hint">
+        Odštampajte ovaj QR kod i zalijepite na vidljivo mjesto pri ulazu.<br>
+        Zaposleni skeniraju telefonom i biraju svoje ime.
+      </div>
+    </div>
+    <button class="btn btn-blue" onclick="window.print()">🖨 Štampati QR kod</button>
+    <button class="btn btn-grey" onclick="copyQrUrl()">📋 Kopirati link</button>
+  </div>
+</div>
+
+<!-- QR Library -->
+<script>
+// Minimal QR code generator (built-in, no CDN needed)
+// Using a simple URL-encoded approach — we'll use Google Charts API for reliability
+function generateQR(url, canvas) {
+  const size = canvas.width;
+  const apiUrl = "https://chart.googleapis.com/chart?cht=qr&chs=" + size + "x" + size +
+    "&chl=" + encodeURIComponent(url) + "&choe=UTF-8&chld=M|1";
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, 0, 0, size, size);
+  };
+  img.onerror = () => {
+    // Fallback: show text
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = "#1c1c1e";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Otvorite link:", size/2, size/2 - 10);
+    ctx.font = "11px monospace";
+    ctx.fillText(url.slice(0,40), size/2, size/2 + 10);
+  };
+  img.src = apiUrl;
+}
+</script>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CFG_KEY = "ckf_pris_cfg_v2";
+const EMP_KEY = "ckf_pris_emp_v2";
+
+let scriptUrl = "";
+let adminPin  = "1234";
+let employees = [];   // [{name, position, color}]
+let histDays  = 7;
+let curEmp    = null;
+let pinBuf    = "";
+let clockTimer = null;
+let admCurTab = "now";
+
+// Avatar colors: 9 colors cycling
+const COLORS = ["av0","av1","av2","av3","av4","av5","av6","av7","av8"];
+
+// ─── LOAD / SAVE ─────────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+    scriptUrl = c.url || "";
+    adminPin  = c.pin || "1234";
+  } catch {}
+  try { employees = JSON.parse(localStorage.getItem(EMP_KEY)) || []; } catch {}
+  renderCheckinList();
+}
+
+function saveCfg() {
+  scriptUrl = document.getElementById("cfg-url").value.trim();
+  const pin = document.getElementById("cfg-pin").value.trim();
+  if (pin.length === 4) adminPin = pin;
+  localStorage.setItem(CFG_KEY, JSON.stringify({ url: scriptUrl, pin: adminPin }));
+  document.getElementById("cfg-pin").value = "";
+  setAdmSync("ok", "sačuvano");
+}
+
+function saveEmps() { localStorage.setItem(EMP_KEY, JSON.stringify(employees)); }
+
+// ─── DATE / CLOCK ─────────────────────────────────────────────────────────────
+const DAYS = ["Nedjelja","Ponedeljak","Utorak","Srijeda","Četvrtak","Petak","Subota"];
+const MONTHS = ["januara","februara","marta","aprila","maja","juna","jula","avgusta","septembra","oktobra","novembra","decembra"];
+
+function fmtDate(d) {
+  return DAYS[d.getDay()] + ", " + d.getDate() + ". " + MONTHS[d.getMonth()] + " " + d.getFullYear() + ".";
+}
+function fmtTime(d) {
+  return (d.getHours()<10?"0":"") + d.getHours() + ":" + (d.getMinutes()<10?"0":"") + d.getMinutes();
+}
+
+function startClock() {
+  if (clockTimer) clearInterval(clockTimer);
+  const tick = () => {
+    const n = new Date();
+    const el = document.getElementById("ac-clock");
+    if (el) el.textContent = fmtTime(n);
+  };
+  tick(); clockTimer = setInterval(tick, 1000);
+  document.getElementById("ac-date2").textContent = fmtDate(new Date());
+}
+
+function updateCkDate() {
+  document.getElementById("ck-date").textContent = fmtDate(new Date());
+}
+
+// ─── SCREENS ─────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("hidden", s.id !== id));
+  if (id === "scr-checkin") { updateCkDate(); renderCheckinList(); }
+  if (id === "scr-action")  { startClock(); loadEmpStatus(); }
+  if (id === "scr-admin")   { document.getElementById("cfg-url").value = scriptUrl; renderEmpMgr(); admTab("now"); }
+}
+
+function goBack() { showScreen("scr-checkin"); }
+function goPin()  { pinBuf = ""; updatePinDots(); document.getElementById("pin-err").textContent = ""; showScreen("scr-pin"); }
+
+// ─── EMPLOYEE LIST ───────────────────────────────────────────────────────────
+function renderCheckinList() {
+  const grid = document.getElementById("emp-grid");
+  if (!employees.length) {
+    grid.innerHTML = '<div class="no-employees">' +
+      '<div class="no-emp-icon">👥</div>' +
+      '<div class="no-emp-txt">Nema zaposlenih</div>' +
+      '<div class="no-emp-sub">Otvorite Admin panel i dodajte zaposlene.</div></div>';
+    return;
+  }
+  grid.innerHTML = employees.map((e, i) =>
+    '<div class="emp-card" onclick="selectEmp(' + i + ')">' +
+    '<div class="emp-avatar ' + COLORS[i % COLORS.length] + '">' + e.name.charAt(0).toUpperCase() + '</div>' +
+    '<div><div class="emp-name">' + e.name + '</div>' +
+    (e.position ? '<div class="emp-pos">' + e.position + '</div>' : '') + '</div>' +
+    '<span class="emp-arrow">›</span></div>'
+  ).join('');
+}
+
+function selectEmp(idx) {
+  curEmp = { ...employees[idx], colorIdx: idx % COLORS.length };
+  const av = document.getElementById("ac-avatar");
+  av.textContent = curEmp.name.charAt(0).toUpperCase();
+  av.className = "ac-avatar " + COLORS[curEmp.colorIdx];
+  document.getElementById("ac-name").textContent = curEmp.name;
+  document.getElementById("ac-pos").textContent  = curEmp.position || "";
+  showScreen("scr-action");
+}
+
+async function loadEmpStatus() {
+  if (!scriptUrl || !curEmp) return;
+  try {
+    const r = await fetch(scriptUrl + "?action=empstatus&name=" + encodeURIComponent(curEmp.name), { cache: "no-store" });
+    const d = await r.json();
+    const box = document.getElementById("ac-status-box");
+    if (d.present) {
+      box.style.display = "block";
+      document.getElementById("ac-status-val").textContent = "od " + d.since;
+      document.getElementById("btn-arrive").className = "ac-btn ac-btn-arrive ac-btn-disabled";
+      document.getElementById("btn-leave").className  = "ac-btn ac-btn-leave";
+    } else {
+      box.style.display = "none";
+      document.getElementById("btn-arrive").className = "ac-btn ac-btn-arrive";
+      document.getElementById("btn-leave").className  = "ac-btn ac-btn-leave ac-btn-disabled";
+    }
+  } catch {}
+}
+
+// ─── CHECKIN ─────────────────────────────────────────────────────────────────
+async function doCheckin(type) {
+  if (!curEmp) return;
+  const now = new Date();
+  const timeStr = fmtTime(now);
+
+  // Show confirm immediately (optimistic UI)
+  showConfirm(type, curEmp.name, timeStr);
+
+  // Send to server in background
+  if (scriptUrl) {
+    try {
+      await fetch(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ event: type === "arrive" ? "arrive" : "leave",
+          employee: curEmp.name, position: curEmp.position || "" })
+      });
+    } catch {}
+  }
+}
+
+function showConfirm(type, name, time) {
+  const scr = document.getElementById("scr-confirm");
+  const isArrive = type === "arrive";
+  scr.className = "screen " + (isArrive ? "arrive-bg" : "leave-bg");
+  document.getElementById("cf-icon").textContent  = isArrive ? "✅" : "👋";
+  document.getElementById("cf-title").textContent = isArrive ? "DOBRODOŠLI!" : "DOVIĐENJA!";
+  document.getElementById("cf-name").textContent  = name;
+  document.getElementById("cf-time").textContent  = isArrive ? "Dolazak: " + time : "Odlazak: " + time;
+  showScreen("scr-confirm");
+
+  // Progress bar + auto-close
+  const fill = document.getElementById("cf-fill");
+  fill.style.transition = "none"; fill.style.width = "0%";
+  setTimeout(() => { fill.style.transition = "width 3s linear"; fill.style.width = "100%"; }, 50);
+  setTimeout(() => showScreen("scr-checkin"), 3200);
+}
+
+// ─── PIN ─────────────────────────────────────────────────────────────────────
+function pk(v) {
+  if (v === "del") { pinBuf = pinBuf.slice(0,-1); }
+  else if (pinBuf.length < 4) { pinBuf += v; }
+  updatePinDots();
+  if (pinBuf.length === 4) setTimeout(checkPin, 120);
+}
+
+function updatePinDots() {
+  for (let i=0; i<4; i++) document.getElementById("pd"+i).classList.toggle("filled", i < pinBuf.length);
+}
+
+function checkPin() {
+  if (pinBuf === adminPin) {
+    showScreen("scr-admin");
+  } else {
+    document.getElementById("pin-err").textContent = "Pogrešan PIN";
+    pinBuf = ""; updatePinDots();
+  }
+}
+
+// ─── ADMIN TABS ──────────────────────────────────────────────────────────────
+function admTab(id) {
+  ["now","today","hist","emp","qr"].forEach(t => {
+    document.getElementById("av-"+t).classList.toggle("hidden", t !== id);
+    document.getElementById("atab-"+t).classList.toggle("active", t === id);
+  });
+  admCurTab = id;
+  if (id === "now")   loadAdmNow();
+  if (id === "today") loadAdmToday();
+  if (id === "hist")  loadAdmHist();
+  if (id === "emp")   renderEmpMgr();
+  if (id === "qr")    renderQr();
+}
+
+function setAdmSync(state, txt) {
+  const d = document.getElementById("adm-sdot");
+  const t = document.getElementById("adm-stxt");
+  if (d) d.className = "sdot " + state;
+  if (t) t.textContent = txt;
+}
+
+async function apiGet(action, extra) {
+  if (!scriptUrl) { setAdmSync("off","nema URL"); return null; }
+  setAdmSync("busy","...");
+  try {
+    const p = new URLSearchParams({ action, ...extra });
+    const r = await fetch(scriptUrl + "?" + p, { cache: "no-store" });
+    const d = await r.json();
+    setAdmSync("ok","sinhronizovano");
+    return d;
+  } catch { setAdmSync("err","nema veze"); return null; }
+}
+
+async function loadAdmNow() {
+  const d = await apiGet("status");
+  if (!d) return;
+  document.getElementById("adm-cnt-p").textContent = d.present ? d.present.length : 0;
+  document.getElementById("adm-cnt-a").textContent = d.absent  ? d.absent.length  : 0;
+  const box = document.getElementById("adm-list-now");
+  const all = [...(d.present||[]).map(e=>({...e,here:true})), ...(d.absent||[]).map(e=>({...e,here:false}))];
+  if (!all.length) { box.innerHTML = '<div class="empty">Nema podataka</div>'; return; }
+  box.innerHTML = '<div class="lc-hdr">Status zaposlenih</div>' + all.map((e,i) =>
+    '<div class="lc-row">' +
+    '<div class="lc-av ' + COLORS[i % COLORS.length] + '">' + e.name.charAt(0).toUpperCase() + '</div>' +
+    '<div class="lc-info"><div class="lc-name">' + e.name + '</div>' +
+    (e.here ? '<div class="lc-sub">Od ' + (e.since||'?') + '</div>' : '') + '</div>' +
+    '<span class="lc-badge ' + (e.here ? 'present' : 'absent') + '">' + (e.here ? 'NA POSLU' : 'ODSUTAN') + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+async function loadAdmToday() {
+  const d = await apiGet("today");
+  if (!d) return;
+  const box = document.getElementById("adm-list-today");
+  if (!d.log || !d.log.length) { box.innerHTML = '<div class="empty">Nema podataka za danas</div>'; return; }
+  box.innerHTML = '<div class="lc-hdr">Dnevni log — ' + (d.date||'') + '</div>' +
+    [...d.log].reverse().map(r =>
+      '<div class="lc-row">' +
+      '<span class="lc-badge ' + (r.event==='DOLAZAK'?'arrive':'leave') + '">' +
+      (r.event==='DOLAZAK'?'DOLAZAK':'ODLAZAK') + '</span>' +
+      '<div class="lc-info" style="margin-left:8px"><div class="lc-name">' + r.employee + '</div>' +
+      (r.hours?'<div class="lc-sub">' + r.hours + '</div>':'') + '</div>' +
+      '<span style="font-size:14px;color:var(--muted)">' + r.time + '</span>' +
+      '</div>'
+    ).join('');
+}
+
+async function loadAdmHist() {
+  const d = await apiGet("history", { days: histDays });
+  if (!d) return;
+  const box = document.getElementById("adm-list-hist");
+  if (!d.history || !d.history.length) { box.innerHTML = '<div class="empty">Nema podataka</div>'; return; }
+  box.innerHTML = d.history.map((emp, i) =>
+    '<div class="hist-item">' +
+    '<div class="hist-hdr">' +
+    '<div class="lc-av ' + COLORS[i%COLORS.length] + '" style="width:36px;height:36px;flex-shrink:0">' + emp.name.charAt(0).toUpperCase() + '</div>' +
+    '<div class="lc-name" style="margin-left:10px">' + emp.name + '</div>' +
+    '<div class="hist-total">' + emp.total + '</div></div>' +
+    emp.days.map(day =>
+      '<div class="hist-day"><span class="hist-day-d">' + day.date + '</span>' +
+      '<span class="hist-day-h">' + day.hours + '</span></div>'
+    ).join('') +
+    '</div>'
+  ).join('');
+}
+
+function setPer(n, btn) {
+  histDays = n;
+  document.querySelectorAll(".per-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  loadAdmHist();
+}
+
+// ─── EMPLOYEE MANAGEMENT ─────────────────────────────────────────────────────
+function renderEmpMgr() {
+  const box = document.getElementById("emp-mgr-list");
+  if (!employees.length) { box.innerHTML = '<div class="empty">Nema zaposlenih</div>'; return; }
+  box.innerHTML = employees.map((e, i) =>
+    '<div class="emp-mgr-row">' +
+    '<div class="emp-mgr-av ' + COLORS[i%COLORS.length] + '">' + e.name.charAt(0).toUpperCase() + '</div>' +
+    '<div class="emp-mgr-info"><div class="emp-mgr-name">' + e.name + '</div>' +
+    (e.position?'<div class="emp-mgr-pin">' + e.position + '</div>':'') + '</div>' +
+    '<button class="emp-del-btn" onclick="delEmp(' + i + ')">✕</button>' +
+    '</div>'
+  ).join('');
+}
+
+function addEmp() {
+  const name = document.getElementById("ae-name").value.trim();
+  const pos  = document.getElementById("ae-pos").value.trim();
+  if (!name) return;
+  employees.push({ name, position: pos });
+  saveEmps();
+  document.getElementById("ae-name").value = "";
+  document.getElementById("ae-pos").value  = "";
+  renderEmpMgr();
+  renderCheckinList();
+}
+
+function delEmp(i) {
+  if (!confirm("Obrisati " + employees[i].name + "?")) return;
+  employees.splice(i, 1);
+  saveEmps();
+  renderEmpMgr();
+  renderCheckinList();
+}
+
+// ─── QR CODE ─────────────────────────────────────────────────────────────────
+function renderQr() {
+  const url = window.location.href.split("?")[0];
+  document.getElementById("qr-url-txt").textContent = url;
+  generateQR(url, document.getElementById("qr-canvas"));
+}
+
+function copyQrUrl() {
+  const url = window.location.href.split("?")[0];
+  navigator.clipboard.writeText(url).then(() => alert("Link kopiran!")).catch(() => {});
+}
+
+// ─── PRINT STYLE ─────────────────────────────────────────────────────────────
+const pStyle = document.createElement("style");
+pStyle.textContent = "@media print { body > *:not(#scr-admin) { display:none !important; } #scr-admin .adm-header, #scr-admin .adm-tabs, #av-now, #av-today, #av-hist, #av-emp { display:none !important; } #av-qr { display:block !important; } .adm-section { padding:0; } .btn { display:none; } }";
+document.head.appendChild(pStyle);
+
+
+// ─── SESSION-AWARE INIT ──────────────────────────────────────────────────────
+function getHubSession() {
+  try {
+    return JSON.parse(localStorage.getItem('ckf_session') ||
+                      sessionStorage.getItem('ckf_session'));
+  } catch { return null; }
+}
+
+let psSession = null;
+let psClockTimer = null;
+
+function initWithSession() {
+  const s = getHubSession();
+  if (s && s.name) {
+    // We know who this is — show personal screen
+    psSession = s;
+    setupPersonalScreen(s);
+    showScreen('scr-personal');
+  } else {
+    // No session — show employee list
+    showScreen('scr-checkin');
+  }
+}
+
+function setupPersonalScreen(s) {
+  const COLORS = ['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e',
+                  '#3949ab','#00acc1','#7cb342','#fb8c00','#d81b60'];
+  const av = document.getElementById('ps-avatar');
+  av.textContent    = s.name.charAt(0).toUpperCase();
+  av.style.background = COLORS[(s.colorIdx || 0) % COLORS.length];
+  document.getElementById('ps-name').textContent = s.name;
+  document.getElementById('ps-pos').textContent  = s.position || '';
+  // Clock
+  if (psClockTimer) clearInterval(psClockTimer);
+  const tick = () => {
+    const n = new Date();
+    const t = (n.getHours()<10?'0':'') + n.getHours() + ':' + (n.getMinutes()<10?'0':'') + n.getMinutes();
+    const el = document.getElementById('ps-clock');
+    if (el) el.textContent = t;
+  };
+  tick(); psClockTimer = setInterval(tick, 1000);
+  document.getElementById('ps-date').textContent = fmtDate(new Date());
+  // Load status from server
+  loadPsStatus(s.name);
+}
+
+async function loadPsStatus(name) {
+  if (!scriptUrl) return;
+  try {
+    const r = await fetch(scriptUrl + '?action=empstatus&name=' + encodeURIComponent(name), { cache: 'no-store' });
+    const d = await r.json();
+    const box = document.getElementById('ps-status-box');
+    if (d.present) {
+      box.style.display = 'block';
+      document.getElementById('ps-status-val').textContent = 'od ' + d.since;
+      document.getElementById('ps-btn-arrive').className = 'ac-btn ac-btn-arrive ac-btn-disabled';
+      document.getElementById('ps-btn-leave').className  = 'ac-btn ac-btn-leave';
+    } else {
+      box.style.display = 'none';
+      document.getElementById('ps-btn-arrive').className = 'ac-btn ac-btn-arrive';
+      document.getElementById('ps-btn-leave').className  = 'ac-btn ac-btn-leave ac-btn-disabled';
+    }
+  } catch {}
+}
+
+async function psCheckin(type) {
+  if (!psSession) return;
+  const now = new Date();
+  const timeStr = fmtTime(now);
+  showConfirm(type, psSession.name, timeStr);
+  if (scriptUrl) {
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ event: type === 'arrive' ? 'arrive' : 'leave',
+          employee: psSession.name, position: psSession.position || '' })
+      });
+    } catch {}
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadData();
+updateCkDate();
+initWithSession();
+</script>
+</body>
+</html>

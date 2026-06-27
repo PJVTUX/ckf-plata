@@ -76,6 +76,16 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
   <div class="app-arrow">›</div>
 </a>
 
+<!-- CKF PRISUTNOST -->
+<a class="app-card" href="https://pjvtux.github.io/ckf-plata/ckf_prisutnost.html" target="_self">
+  <div class="app-emoji-icon">🕐</div>
+  <div class="app-info">
+    <div class="app-name">CKF Prisutnost</div>
+    <div class="app-desc">Evidentiranje dolaska i odlaska zaposlenih</div>
+  </div>
+  <div class="app-arrow">›</div>
+</a>
+
 <div class="section-label">Uskoro</div>
 
 <div class="app-card soon">
@@ -109,5 +119,326 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./hub-sw.js');
 }
 </script>
+
+<!-- ══════════════════════════════════════════════
+     CKF SESSION SYSTEM
+══════════════════════════════════════════════════ -->
+<div id="ckf-login-overlay" style="
+  position:fixed; inset:0; z-index:9999;
+  background:#1c1c1e;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:24px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+">
+  <!-- Logo & Title -->
+  <div style="text-align:center; margin-bottom:32px">
+    <div style="font-size:28px; font-weight:800; color:#fff; letter-spacing:-.5px; margin-bottom:6px">
+      CKF <span style="color:#e31e24">SISTEM</span>
+    </div>
+    <div style="font-size:14px; color:rgba(255,255,255,.5); font-weight:500">Dobrodošli! Ko ste vi?</div>
+  </div>
+
+  <!-- Step 1: Employee selection -->
+  <div id="ckfs-step1" style="width:100%; max-width:380px">
+    <div id="ckfs-emp-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px"></div>
+    <div style="text-align:center; margin-top:24px">
+      <span onclick="ckfsAdminMode()" style="font-size:13px; color:rgba(255,255,255,.3); cursor:pointer">⚙ Upravljanje zaposlenima</span>
+    </div>
+  </div>
+
+  <!-- Step 2: PIN entry -->
+  <div id="ckfs-step2" style="display:none; width:100%; max-width:380px">
+    <div style="text-align:center; margin-bottom:20px">
+      <div id="ckfs-sel-name" style="font-size:20px; font-weight:800; color:#fff; margin-bottom:4px"></div>
+      <div style="font-size:13px; color:rgba(255,255,255,.4)">Unesite vaš PIN</div>
+    </div>
+    <div style="display:flex; justify-content:center; gap:12px; margin-bottom:20px">
+      <div class="ckfs-dot" id="ckfsp0"></div>
+      <div class="ckfs-dot" id="ckfsp1"></div>
+      <div class="ckfs-dot" id="ckfsp2"></div>
+      <div class="ckfs-dot" id="ckfsp3"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:8px">
+      <button class="ckfs-pbtn" onclick="ckfsPk('1')">1</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('2')">2</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('3')">3</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('4')">4</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('5')">5</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('6')">6</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('7')">7</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('8')">8</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('9')">9</button>
+      <div></div>
+      <button class="ckfs-pbtn" onclick="ckfsPk('0')">0</button>
+      <button class="ckfs-pbtn" onclick="ckfsPk('del')">⌫</button>
+    </div>
+    <div id="ckfs-pin-err" style="text-align:center; color:#ff5252; font-size:14px; min-height:20px; margin-bottom:10px"></div>
+    <label style="display:flex; align-items:center; gap:8px; justify-content:center; color:rgba(255,255,255,.6); font-size:13px; cursor:pointer">
+      <input type="checkbox" id="ckfs-remember" checked style="width:16px; height:16px; accent-color:#007aff">
+      Zapamti me na ovom uređaju
+    </label>
+    <div onclick="ckfsGoStep1()" style="text-align:center; margin-top:16px; color:rgba(255,255,255,.3); font-size:13px; cursor:pointer">‹ Nazad</div>
+  </div>
+
+  <!-- Admin: employee management -->
+  <div id="ckfs-admin" style="display:none; width:100%; max-width:380px">
+    <div style="font-size:16px; font-weight:700; color:#fff; text-align:center; margin-bottom:16px">⚙ Upravljanje zaposlenima</div>
+    <div id="ckfs-admin-list" style="background:rgba(255,255,255,.08); border-radius:12px; overflow:hidden; margin-bottom:12px"></div>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px">
+      <input id="ckfs-ae-name" type="text" placeholder="Ime i prezime" style="border:none; border-radius:10px; padding:12px; font-size:15px; outline:none; background:rgba(255,255,255,.12); color:#fff;">
+      <input id="ckfs-ae-pos"  type="text" placeholder="Pozicija (opciono)" style="border:none; border-radius:10px; padding:12px; font-size:15px; outline:none; background:rgba(255,255,255,.12); color:#fff;">
+      <input id="ckfs-ae-pin"  type="password" maxlength="4" inputmode="numeric" placeholder="PIN (4 cifre)" style="border:none; border-radius:10px; padding:12px; font-size:15px; outline:none; background:rgba(255,255,255,.12); color:#fff; letter-spacing:8px;">
+    </div>
+    <button onclick="ckfsAddEmp()" style="width:100%; border:none; border-radius:12px; padding:13px; background:#007aff; color:#fff; font-size:15px; font-weight:700; cursor:pointer; margin-bottom:8px">Dodaj zaposlenog</button>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px">
+      <div style="font-size:12px; color:rgba(255,255,255,.4)">Apps Script URL (za evidenciju prisutnosti):</div>
+      <input id="ckfs-url" type="url" placeholder="https://script.google.com/..." style="border:none; border-radius:10px; padding:10px 12px; font-size:12px; outline:none; background:rgba(255,255,255,.12); color:#fff; width:100%;">
+      <button onclick="ckfsSaveUrl()" style="border:none; border-radius:10px; padding:10px; background:rgba(255,255,255,.15); color:#fff; font-size:13px; font-weight:600; cursor:pointer">Sačuvaj URL</button>
+    </div>
+    <div onclick="ckfsGoStep1()" style="text-align:center; color:rgba(255,255,255,.4); font-size:13px; cursor:pointer; margin-top:4px">‹ Nazad</div>
+  </div>
+</div>
+
+<!-- User badge in hub header (shown when logged in) -->
+<div id="ckf-user-badge" style="
+  display:none; position:fixed; bottom:env(safe-area-inset-bottom,16px);
+  right:16px; z-index:100;
+  background:rgba(28,28,30,.92); border:1.5px solid rgba(255,255,255,.18);
+  border-radius:24px; padding:8px 14px 8px 10px;
+  display:none; align-items:center; gap:8px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+  cursor:pointer;
+" onclick="ckfsSwitchUser()">
+  <div id="ckf-badge-av" style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#fff; flex-shrink:0;"></div>
+  <div style="font-size:13px; font-weight:600; color:#fff" id="ckf-badge-name"></div>
+  <div style="font-size:11px; color:rgba(255,255,255,.45)">↔</div>
+</div>
+
+<style>
+.ckfs-dot {
+  width:14px; height:14px; border-radius:50%;
+  background:rgba(255,255,255,.2); transition:background .15s;
+}
+.ckfs-dot.filled { background:#fff; }
+.ckfs-pbtn {
+  background:rgba(255,255,255,.12); border:none; border-radius:12px;
+  padding:16px; font-size:24px; font-weight:600; color:#fff; cursor:pointer;
+}
+.ckfs-pbtn:active { background:rgba(255,255,255,.25); }
+.ckfs-emp-btn {
+  background:rgba(255,255,255,.1); border:none; border-radius:14px;
+  padding:16px 18px; display:flex; align-items:center; gap:12px;
+  cursor:pointer; width:100%; text-align:left;
+}
+.ckfs-emp-btn:active { background:rgba(255,255,255,.2); }
+.ckfs-emp-av {
+  width:40px; height:40px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; font-size:17px;
+  font-weight:700; color:#fff; flex-shrink:0;
+}
+</style>
+
+<script>
+// ─── CKF SESSION SYSTEM ────────────────────────────────────────────────────────
+const CKFS_EMP_KEY = 'ckf_hub_emps_v1';
+const CKFS_CFG_KEY = 'ckf_hub_cfg_v1';
+const CKFS_SES_KEY = 'ckf_session';
+
+const CKFS_COLORS = [
+  '#e53935','#8e24aa','#1e88e5','#00897b','#f4511e',
+  '#3949ab','#00acc1','#7cb342','#fb8c00','#d81b60'
+];
+
+let ckfsEmps    = [];
+let ckfsCfg     = { adminPin: "0000", url: "" };
+let ckfsSelEmp  = null;
+let ckfsPinBuf  = "";
+let ckfsAdminOk = false;
+
+function ckfsLoad() {
+  try { ckfsEmps = JSON.parse(localStorage.getItem(CKFS_EMP_KEY)) || []; } catch {}
+  try { ckfsCfg  = { adminPin:"0000", url:"", ...JSON.parse(localStorage.getItem(CKFS_CFG_KEY)) }; } catch {}
+  document.getElementById('ckfs-url').value = ckfsCfg.url || "";
+}
+
+function ckfsSave() { localStorage.setItem(CKFS_EMP_KEY, JSON.stringify(ckfsEmps)); }
+function ckfsSaveCfg() { localStorage.setItem(CKFS_CFG_KEY, JSON.stringify(ckfsCfg)); }
+function ckfsSaveUrl() {
+  ckfsCfg.url = document.getElementById('ckfs-url').value.trim();
+  ckfsSaveCfg();
+}
+
+// Check existing session
+function ckfsCheckSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CKFS_SES_KEY));
+    if (s && s.name && s.remember) {
+      // Valid remembered session — skip login
+      ckfsApplySession(s, false);
+      return;
+    }
+  } catch {}
+  // Show login
+  ckfsGoStep1();
+  document.getElementById('ckf-login-overlay').style.display = 'flex';
+}
+
+function ckfsApplySession(session, sendArrive) {
+  // Hide login overlay
+  document.getElementById('ckf-login-overlay').style.display = 'none';
+  // Show user badge
+  const badge = document.getElementById('ckf-user-badge');
+  badge.style.display = 'flex';
+  const av = document.getElementById('ckf-badge-av');
+  av.textContent  = session.name.charAt(0).toUpperCase();
+  av.style.background = CKFS_COLORS[session.colorIdx % CKFS_COLORS.length];
+  document.getElementById('ckf-badge-name').textContent = session.name;
+  // Auto-arrive if needed
+  if (sendArrive && ckfsCfg.url) ckfsSendArrive(session.name);
+}
+
+async function ckfsSendArrive(name) {
+  try {
+    await fetch(ckfsCfg.url, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ event: "arrive", employee: name, source: "hub" })
+    });
+  } catch {}
+}
+
+// Step 1: Employee list
+function ckfsGoStep1() {
+  document.getElementById('ckfs-step1').style.display = '';
+  document.getElementById('ckfs-step2').style.display = 'none';
+  document.getElementById('ckfs-admin').style.display  = 'none';
+  ckfsRenderEmpList();
+}
+
+function ckfsRenderEmpList() {
+  const box = document.getElementById('ckfs-emp-list');
+  if (!ckfsEmps.length) {
+    box.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.4);font-size:14px">Nema zaposlenih.<br>Otvorite Upravljanje zaposlenima ispod.</div>';
+    return;
+  }
+  box.innerHTML = ckfsEmps.map((e, i) =>
+    '<button class="ckfs-emp-btn" onclick="ckfsSelectEmp(' + i + ')">' +
+    '<div class="ckfs-emp-av" style="background:' + CKFS_COLORS[i % CKFS_COLORS.length] + '">' +
+    e.name.charAt(0).toUpperCase() + '</div>' +
+    '<div style="flex:1;text-align:left">' +
+    '<div style="font-size:16px;font-weight:700;color:#fff">' + e.name + '</div>' +
+    (e.position ? '<div style="font-size:13px;color:rgba(255,255,255,.4);margin-top:2px">' + e.position + '</div>' : '') +
+    '</div><span style="color:rgba(255,255,255,.3);font-size:20px">›</span>' +
+    '</button>'
+  ).join('');
+}
+
+// Step 2: PIN
+function ckfsSelectEmp(idx) {
+  ckfsSelEmp = { ...ckfsEmps[idx], colorIdx: idx };
+  ckfsPinBuf = "";
+  document.getElementById('ckfs-sel-name').textContent = ckfsEmps[idx].name;
+  document.getElementById('ckfs-pin-err').textContent  = "";
+  for (let i=0; i<4; i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+  document.getElementById('ckfs-step1').style.display  = 'none';
+  document.getElementById('ckfs-step2').style.display  = '';
+}
+
+function ckfsPk(v) {
+  if (v === 'del') { ckfsPinBuf = ckfsPinBuf.slice(0,-1); }
+  else if (ckfsPinBuf.length < 4) { ckfsPinBuf += v; }
+  for (let i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.toggle('filled', i < ckfsPinBuf.length);
+  if (ckfsPinBuf.length === 4) setTimeout(ckfsCheckPin, 120);
+}
+
+function ckfsCheckPin() {
+  if (!ckfsSelEmp) return;
+  if (ckfsPinBuf !== ckfsSelEmp.pin) {
+    document.getElementById('ckfs-pin-err').textContent = 'Pogrešan PIN';
+    ckfsPinBuf = "";
+    for (let i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+    return;
+  }
+  // PIN correct — create session
+  const remember = document.getElementById('ckfs-remember').checked;
+  const session  = {
+    name:      ckfsSelEmp.name,
+    position:  ckfsSelEmp.position || "",
+    colorIdx:  ckfsSelEmp.colorIdx,
+    loginTime: Date.now(),
+    remember
+  };
+  if (remember) localStorage.setItem(CKFS_SES_KEY, JSON.stringify(session));
+  else sessionStorage.setItem(CKFS_SES_KEY, JSON.stringify(session));
+  ckfsApplySession(session, false);
+}
+
+// Switch user
+function ckfsSwitchUser() {
+  if (!confirm('Promijeniti korisnika?')) return;
+  localStorage.removeItem(CKFS_SES_KEY);
+  sessionStorage.removeItem(CKFS_SES_KEY);
+  document.getElementById('ckf-user-badge').style.display = 'none';
+  document.getElementById('ckf-login-overlay').style.display = 'flex';
+  ckfsGoStep1();
+}
+
+// Admin mode (long-press or link)
+let ckfsAdminTap = 0;
+function ckfsAdminMode() {
+  const pin = prompt('Admin PIN:');
+  if (pin === ckfsCfg.adminPin) {
+    document.getElementById('ckfs-step1').style.display = 'none';
+    document.getElementById('ckfs-admin').style.display  = '';
+    ckfsRenderAdminList();
+  } else if (pin !== null) {
+    alert('Pogrešan PIN');
+  }
+}
+
+function ckfsRenderAdminList() {
+  const box = document.getElementById('ckfs-admin-list');
+  if (!ckfsEmps.length) {
+    box.innerHTML = '<div style="padding:14px;text-align:center;color:rgba(255,255,255,.4);font-size:14px">Nema zaposlenih</div>';
+    return;
+  }
+  box.innerHTML = ckfsEmps.map((e, i) =>
+    '<div style="display:flex;align-items:center;padding:12px 14px;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)">' +
+    '<div class="ckfs-emp-av" style="width:32px;height:32px;font-size:13px;background:' + CKFS_COLORS[i%CKFS_COLORS.length] + '">' + e.name.charAt(0).toUpperCase() + '</div>' +
+    '<div style="flex:1;color:#fff;font-size:14px;font-weight:600">' + e.name +
+    (e.position ? '<span style="color:rgba(255,255,255,.4);font-weight:400;margin-left:8px">' + e.position + '</span>' : '') + '</div>' +
+    '<div style="font-family:monospace;color:rgba(255,255,255,.3);font-size:12px">●●●●</div>' +
+    '<button onclick="ckfsDelEmp(' + i + ')" style="background:none;border:none;color:#ff5252;font-size:16px;cursor:pointer;padding:4px 8px">✕</button>' +
+    '</div>'
+  ).join('');
+}
+
+function ckfsAddEmp() {
+  const name = document.getElementById('ckfs-ae-name').value.trim();
+  const pos  = document.getElementById('ckfs-ae-pos').value.trim();
+  const pin  = document.getElementById('ckfs-ae-pin').value.trim();
+  if (!name || pin.length !== 4) { alert('Unesite ime i 4-cifreni PIN'); return; }
+  ckfsEmps.push({ name, position: pos, pin });
+  ckfsSave();
+  document.getElementById('ckfs-ae-name').value = "";
+  document.getElementById('ckfs-ae-pos').value  = "";
+  document.getElementById('ckfs-ae-pin').value  = "";
+  ckfsRenderAdminList();
+}
+
+function ckfsDelEmp(i) {
+  if (!confirm('Obrisati ' + ckfsEmps[i].name + '?')) return;
+  ckfsEmps.splice(i, 1);
+  ckfsSave();
+  ckfsRenderAdminList();
+}
+
+// Init
+ckfsLoad();
+ckfsCheckSession();
+</script>
+
 </body>
 </html>

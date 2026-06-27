@@ -1113,5 +1113,52 @@ document.addEventListener("visibilitychange", () => {
 
 pullFromServer().then(() => startAutoSync());
 </script>
+
+<!-- CKF SESSION BADGE -->
+<script>
+(function() {
+  const COLORS = ['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e',
+                  '#3949ab','#00acc1','#7cb342','#fb8c00','#d81b60'];
+  function getSession() {
+    try { return JSON.parse(localStorage.getItem('ckf_session') || sessionStorage.getItem('ckf_session')); } catch { return null; }
+  }
+  function showBadge() {
+    const s = getSession();
+    if (!s || !s.name) return;
+    const badge = document.createElement('div');
+    badge.id = 'ckf-user-badge-app';
+    badge.title = 'Ulogovani korisnik: ' + s.name;
+    badge.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,80px);right:12px;' +
+      'z-index:500;background:rgba(28,28,30,.88);border:1.5px solid rgba(255,255,255,.18);' +
+      'border-radius:22px;padding:7px 12px 7px 8px;display:flex;align-items:center;gap:7px;' +
+      'backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.25);' +
+      'font-family:-apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;';
+    const av = document.createElement('div');
+    av.textContent = s.name.charAt(0).toUpperCase();
+    av.style.cssText = 'width:24px;height:24px;border-radius:50%;display:flex;align-items:center;' +
+      'justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;' +
+      'background:' + COLORS[(s.colorIdx || 0) % COLORS.length] + ';';
+    const nm = document.createElement('div');
+    nm.textContent = s.name;
+    nm.style.cssText = 'font-size:12px;font-weight:600;color:#fff;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;';
+    badge.appendChild(av);
+    badge.appendChild(nm);
+    badge.onclick = function() {
+      if (confirm('Promijeniti korisnika?\nBit ćete odlogovani.')) {
+        localStorage.removeItem('ckf_session');
+        sessionStorage.removeItem('ckf_session');
+        badge.remove();
+      }
+    };
+    document.body.appendChild(badge);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', showBadge);
+  } else {
+    showBadge();
+  }
+})();
+</script>
+
 </body>
 </html>
