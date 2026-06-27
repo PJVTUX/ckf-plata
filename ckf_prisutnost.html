@@ -245,7 +245,24 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
 .av0{background:#e53935} .av1{background:#8e24aa} .av2{background:#1e88e5}
 .av3{background:#00897b} .av4{background:#f4511e} .av5{background:#3949ab}
 .av6{background:#00acc1} .av7{background:#7cb342} .av8{background:#fb8c00}
+/* ── PERSONAL SCREEN CAMERA ── */
+#scr-personal { overflow-y:auto; }
+.ps-cam-wrap { position:relative; background:#000; border-radius:16px; overflow:hidden;
+  margin:0 0 4px; aspect-ratio:4/3; max-height:48vh; flex-shrink:0; }
+#ps-video { width:100%; height:100%; object-fit:cover; display:block; }
+#ps-canvas { display:none; }
+.ps-cam-msg { position:absolute; bottom:10px; left:0; right:0; text-align:center;
+  color:#fff; font-size:13px; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,.8); }
+.ps-cam-corner { position:absolute; width:36px; height:36px; border-color:#fff; border-style:solid; opacity:.8; }
+.ps-cam-corner.tl { top:10px;    left:10px;  border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+.ps-cam-corner.tr { top:10px;    right:10px; border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+.ps-cam-corner.bl { bottom:10px; left:10px;  border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+.ps-cam-corner.br { bottom:10px; right:10px; border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
+.ps-scan-hint { text-align:center; color:var(--muted); font-size:12px; margin:2px 0 6px; }
+.ps-fallback-btn { display:block; text-align:center; color:var(--muted); font-size:13px;
+  padding:6px; cursor:pointer; text-decoration:underline; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
 
@@ -280,14 +297,27 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       <div class="ac-status-lbl">Na poslu od:</div>
       <div class="ac-status-val" id="ps-status-val"></div>
     </div>
-    <div class="action-btns">
-      <button class="ac-btn ac-btn-arrive" id="ps-btn-arrive" onclick="psCheckin('arrive')">
-        ☀️ DOLAZAK — Dolazim na posao
-      </button>
-      <button class="ac-btn ac-btn-leave" id="ps-btn-leave" onclick="psCheckin('leave')">
-        🌙 ODLAZAK — Idem kući
-      </button>
+    <div class="ps-cam-wrap" id="ps-cam-wrap">
+      <video id="ps-video" autoplay playsinline muted></video>
+      <canvas id="ps-canvas"></canvas>
+      <div class="ps-cam-corner tl"></div>
+      <div class="ps-cam-corner tr"></div>
+      <div class="ps-cam-corner bl"></div>
+      <div class="ps-cam-corner br"></div>
+      <div class="ps-cam-msg" id="ps-cam-msg">Pokretanje kamere...</div>
     </div>
+    <div class="ps-scan-hint" id="ps-scan-hint">Usmjerite kameru prema QR kodu na zidu</div>
+    <div id="ps-fallback" style="display:none">
+      <div class="action-btns">
+        <button class="ac-btn ac-btn-arrive" id="ps-btn-arrive" onclick="psCheckin('arrive')">
+          ☀️ DOLAZAK — Dolazim na posao
+        </button>
+        <button class="ac-btn ac-btn-leave" id="ps-btn-leave" onclick="psCheckin('leave')">
+          🌙 ODLAZAK — Idem kući
+        </button>
+      </div>
+    </div>
+    <div class="ps-fallback-btn" id="ps-fallback-link" onclick="psCamFallback()">Bez kamere ›</div>
     <div style="text-align:center;margin-top:20px">
       <span onclick="showScreen('scr-checkin')" style="font-size:13px;color:var(--muted);cursor:pointer">
         Niste vi? Izaberi drugo ime →
@@ -426,6 +456,10 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
         <input class="cfg-inp" type="url" id="cfg-url" placeholder="https://script.google.com/...">
       </div>
       <div class="cfg-row">
+        <div class="cfg-lbl">QR Kod</div>
+        <input class="cfg-inp" type="text" id="cfg-qr" placeholder="ckf_prisutnost (default)">
+      </div>
+      <div class="cfg-row">
         <div class="cfg-lbl">Admin PIN</div>
         <input class="cfg-inp" type="password" id="cfg-pin" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:8px">
       </div>
@@ -488,6 +522,7 @@ const CFG_KEY = "ckf_pris_cfg_v2";
 const EMP_KEY = "ckf_pris_emp_v2";
 
 let scriptUrl = "";
+let qrSecret  = "";
 let adminPin  = "1234";
 let employees = [];   // [{name, position, color}]
 let histDays  = 7;
@@ -505,16 +540,25 @@ function loadData() {
     const c = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
     scriptUrl = c.url || "";
     adminPin  = c.pin || "1234";
+    qrSecret  = c.qr  || "";
   } catch {}
+  // Fallback: try hub config for attendance URL
+  if (!scriptUrl) {
+    try {
+      const hc = JSON.parse(localStorage.getItem('ckf_hub_cfg_v1')) || {};
+      scriptUrl = hc.url || "";
+    } catch {}
+  }
   try { employees = JSON.parse(localStorage.getItem(EMP_KEY)) || []; } catch {}
   renderCheckinList();
 }
 
 function saveCfg() {
   scriptUrl = document.getElementById("cfg-url").value.trim();
+  const _qe = document.getElementById("cfg-qr"); qrSecret = _qe ? _qe.value.trim() : "";
   const pin = document.getElementById("cfg-pin").value.trim();
   if (pin.length === 4) adminPin = pin;
-  localStorage.setItem(CFG_KEY, JSON.stringify({ url: scriptUrl, pin: adminPin }));
+  localStorage.setItem(CFG_KEY, JSON.stringify({ url: scriptUrl, pin: adminPin, qr: qrSecret }));
   document.getElementById("cfg-pin").value = "";
   setAdmSync("ok", "sačuvano");
 }
@@ -552,7 +596,7 @@ function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.toggle("hidden", s.id !== id));
   if (id === "scr-checkin") { updateCkDate(); renderCheckinList(); }
   if (id === "scr-action")  { startClock(); loadEmpStatus(); }
-  if (id === "scr-admin")   { document.getElementById("cfg-url").value = scriptUrl; renderEmpMgr(); admTab("now"); }
+  if (id === "scr-admin")   { document.getElementById("cfg-url").value = scriptUrl; var _qe=document.getElementById("cfg-qr"); if(_qe) _qe.value=qrSecret||""; renderEmpMgr(); admTab("now"); }
 }
 
 function goBack() { showScreen("scr-checkin"); }
@@ -642,7 +686,10 @@ function showConfirm(type, name, time) {
   const fill = document.getElementById("cf-fill");
   fill.style.transition = "none"; fill.style.width = "0%";
   setTimeout(() => { fill.style.transition = "width 3s linear"; fill.style.width = "100%"; }, 50);
-  setTimeout(() => showScreen("scr-checkin"), 3200);
+  setTimeout(function() {
+    if (psSession) { showScreen('scr-personal'); }
+    else { showScreen("scr-checkin"); }
+  }, 3200);
 }
 
 // ─── PIN ─────────────────────────────────────────────────────────────────────
@@ -854,6 +901,15 @@ function setupPersonalScreen(s) {
   };
   tick(); psClockTimer = setInterval(tick, 1000);
   document.getElementById('ps-date').textContent = fmtDate(new Date());
+  // Reset camera UI
+  var _cw=document.getElementById('ps-cam-wrap'), _fh=document.getElementById('ps-fallback'),
+      _fl=document.getElementById('ps-fallback-link'), _sh=document.getElementById('ps-scan-hint');
+  if (_cw) _cw.style.display = '';
+  if (_fh) _fh.style.display = 'none';
+  if (_fl) _fl.style.display = '';
+  if (_sh) _sh.style.display = '';
+  psStopCamera();
+  setTimeout(psStartCamera, 400);
   // Load status from server
   loadPsStatus(s.name);
 }
@@ -879,6 +935,7 @@ async function loadPsStatus(name) {
 
 async function psCheckin(type) {
   if (!psSession) return;
+  psStopCamera();
   const now = new Date();
   const timeStr = fmtTime(now);
   showConfirm(type, psSession.name, timeStr);
@@ -891,6 +948,93 @@ async function psCheckin(type) {
       });
     } catch {}
   }
+}
+
+
+// ─── PERSONAL SCREEN CAMERA ───────────────────────────────────────────────────
+let psCamera = null, psScanTimer = null, psCamActive = false;
+
+function psStartCamera() {
+  var video = document.getElementById('ps-video');
+  var msg   = document.getElementById('ps-cam-msg');
+  if (!video) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (msg) msg.textContent = 'Kamera nije podržana u ovom pregledaču';
+    psCamFallback(); return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(function(stream) {
+      psCamera = stream;
+      video.srcObject = stream;
+      video.play();
+      psCamActive = true;
+      var msg2 = document.getElementById('ps-cam-msg');
+      if (msg2) msg2.textContent = 'Skenirajte QR kod na zidu ↑';
+      psScanTimer = setInterval(psScanFrame, 250);
+    })
+    .catch(function(err) {
+      console.warn('Camera error:', err.message);
+      var msg2 = document.getElementById('ps-cam-msg');
+      if (msg2) msg2.textContent = 'Kamera nedostupna';
+      psCamFallback();
+    });
+}
+
+function psStopCamera() {
+  psCamActive = false;
+  if (psScanTimer) { clearInterval(psScanTimer); psScanTimer = null; }
+  if (psCamera) { psCamera.getTracks().forEach(function(t){ t.stop(); }); psCamera = null; }
+  var video = document.getElementById('ps-video');
+  if (video) video.srcObject = null;
+}
+
+function psScanFrame() {
+  if (!psCamActive) return;
+  var video  = document.getElementById('ps-video');
+  var canvas = document.getElementById('ps-canvas');
+  if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
+  if (typeof jsQR === 'undefined') return;
+  var ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  var code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+  if (code && code.data) {
+    var txt    = code.data;
+    var secret = (qrSecret || '').trim();
+    var valid  = secret ? txt.includes(secret)
+                        : (txt.includes('prisutnost') || txt.toLowerCase().includes('ckf'));
+    if (valid) {
+      psStopCamera();
+      var msg = document.getElementById('ps-cam-msg');
+      if (msg) msg.textContent = '✓ QR prepoznat!';
+      setTimeout(psAutoCheckin, 400);
+    }
+  }
+}
+
+async function psAutoCheckin() {
+  if (!psSession) return;
+  var type = 'arrive';
+  if (scriptUrl) {
+    try {
+      var r = await fetch(scriptUrl + '?action=empstatus&name=' + encodeURIComponent(psSession.name), { cache: 'no-store' });
+      var d = await r.json();
+      if (d && d.present) type = 'leave';
+    } catch(e) { console.warn('empstatus:', e); }
+  }
+  psCheckin(type);
+}
+
+function psCamFallback() {
+  var camWrap = document.getElementById('ps-cam-wrap');
+  var hint    = document.getElementById('ps-scan-hint');
+  var fb      = document.getElementById('ps-fallback');
+  var link    = document.getElementById('ps-fallback-link');
+  if (camWrap) camWrap.style.display = 'none';
+  if (hint)    hint.style.display    = 'none';
+  if (fb)      fb.style.display      = '';
+  if (link)    link.style.display    = 'none';
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
