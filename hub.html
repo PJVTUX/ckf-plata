@@ -136,7 +136,7 @@ if ('serviceWorker' in navigator) {
     <div style="font-size:28px; font-weight:800; color:#fff; letter-spacing:-.5px; margin-bottom:6px">
       CKF <span style="color:#e31e24">SISTEM</span>
     </div>
-    <div style="font-size:14px; color:rgba(255,255,255,.5); font-weight:500">Dobrodošli! Ko ste vi?</div>
+    <div style="font-size:14px; color:rgba(255,255,255,.5); font-weight:500">Unesite PIN za prijavu</div>
   </div>
 
   <!-- Step 1: Employee selection -->
@@ -178,7 +178,7 @@ if ('serviceWorker' in navigator) {
       <input type="checkbox" id="ckfs-remember" checked style="width:16px; height:16px; accent-color:#007aff">
       Zapamti me na ovom uređaju
     </label>
-    <div onclick="ckfsGoStep1()" style="text-align:center; margin-top:16px; color:rgba(255,255,255,.3); font-size:13px; cursor:pointer">‹ Nazad</div>
+    <div onclick="ckfsAdminMode()" style="text-align:center; margin-top:16px; color:rgba(255,255,255,.3); font-size:13px; cursor:pointer">⚙ Admin</div>
   </div>
 
   <!-- Admin: employee management -->
@@ -196,7 +196,15 @@ if ('serviceWorker' in navigator) {
       <input id="ckfs-url" type="url" placeholder="https://script.google.com/..." style="border:none; border-radius:10px; padding:10px 12px; font-size:12px; outline:none; background:rgba(255,255,255,.12); color:#fff; width:100%;">
       <button onclick="ckfsSaveUrl()" style="border:none; border-radius:10px; padding:10px; background:rgba(255,255,255,.15); color:#fff; font-size:13px; font-weight:600; cursor:pointer">Sačuvaj URL</button>
     </div>
-    <div onclick="ckfsGoStep1()" style="text-align:center; color:rgba(255,255,255,.4); font-size:13px; cursor:pointer; margin-top:4px">‹ Nazad</div>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px">
+      <div style="font-size:12px; color:rgba(255,255,255,.4); font-weight:600">↓ Sinhronizacija iz Google Sheets:</div>
+      <input id="ckfs-plata-url" type="url" placeholder="Plata script URL" style="border:none; border-radius:10px; padding:10px 12px; font-size:12px; outline:none; background:rgba(255,255,255,.12); color:#fff; width:100%;">
+      <div style="display:flex; gap:6px">
+        <button onclick="ckfsSavePlataUrl()" style="flex:1; border:none; border-radius:10px; padding:10px; background:rgba(255,255,255,.15); color:#fff; font-size:12px; font-weight:600; cursor:pointer">Sačuvaj</button>
+        <button id="ckfs-sync-btn" onclick="ckfsSyncFromSheets()" style="flex:2; border:none; border-radius:10px; padding:10px; background:#1b5e20; color:#fff; font-size:12px; font-weight:600; cursor:pointer">↓ Sinhronizovati</button>
+      </div>
+    </div>
+        <div onclick="ckfsGoStep1()" style="text-align:center; color:rgba(255,255,255,.4); font-size:13px; cursor:pointer; margin-top:4px">‹ Nazad</div>
   </div>
 </div>
 
@@ -261,6 +269,8 @@ function ckfsLoad() {
   try { ckfsEmps = JSON.parse(localStorage.getItem(CKFS_EMP_KEY)) || []; } catch {}
   try { ckfsCfg  = { adminPin:"0000", url:"", ...JSON.parse(localStorage.getItem(CKFS_CFG_KEY)) }; } catch {}
   document.getElementById('ckfs-url').value = ckfsCfg.url || "";
+  var _plataEl = document.getElementById('ckfs-plata-url');
+  if (_plataEl) _plataEl.value = ckfsCfg.plataUrl || "";
 }
 
 function ckfsSave() { localStorage.setItem(CKFS_EMP_KEY, JSON.stringify(ckfsEmps)); }
@@ -311,10 +321,17 @@ async function ckfsSendArrive(name) {
 
 // Step 1: Employee list
 function ckfsGoStep1() {
-  document.getElementById('ckfs-step1').style.display = '';
-  document.getElementById('ckfs-step2').style.display = 'none';
+  // PIN-first: show PIN keyboard directly
+  ckfsPinBuf = '';
+  var nameEl = document.getElementById('ckfs-sel-name');
+  var errEl  = document.getElementById('ckfs-pin-err');
+  if (nameEl) nameEl.textContent = '';
+  if (errEl)  errEl.textContent  = '';
+  for (var i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+  document.getElementById('ckfs-step1').style.display = 'none';
+  document.getElementById('ckfs-step2').style.display = '';
   document.getElementById('ckfs-admin').style.display  = 'none';
-  ckfsRenderEmpList();
+  if (!ckfsEmps.length && errEl) errEl.textContent = 'Nema zaposlenih — dodajte via ⚙ Admin';
 }
 
 function ckfsRenderEmpList() {
@@ -354,21 +371,25 @@ function ckfsPk(v) {
 }
 
 function ckfsCheckPin() {
-  if (!ckfsSelEmp) return;
-  if (ckfsPinBuf !== ckfsSelEmp.pin) {
-    document.getElementById('ckfs-pin-err').textContent = 'Pogrešan PIN';
-    ckfsPinBuf = "";
-    for (let i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
+  // Search all employees by PIN value
+  var idx = ckfsEmps.findIndex(function(e){ return e.pin === ckfsPinBuf; });
+  if (idx === -1) {
+    document.getElementById('ckfs-pin-err').textContent = 'PIN nije pronađen';
+    ckfsPinBuf = '';
+    for (var i=0;i<4;i++) document.getElementById('ckfsp'+i).classList.remove('filled');
     return;
   }
+  var emp = ckfsEmps[idx];
+  var nameEl = document.getElementById('ckfs-sel-name');
+  if (nameEl) nameEl.textContent = '👋 ' + emp.name;
   // PIN correct — create session
-  const remember = document.getElementById('ckfs-remember').checked;
-  const session  = {
-    name:      ckfsSelEmp.name,
-    position:  ckfsSelEmp.position || "",
-    colorIdx:  ckfsSelEmp.colorIdx,
+  var remember = document.getElementById('ckfs-remember').checked;
+  var session  = {
+    name:      emp.name,
+    position:  emp.position || '',
+    colorIdx:  idx % CKFS_COLORS.length,
     loginTime: Date.now(),
-    remember
+    remember:  remember
   };
   if (remember) localStorage.setItem(CKFS_SES_KEY, JSON.stringify(session));
   else sessionStorage.setItem(CKFS_SES_KEY, JSON.stringify(session));
@@ -391,6 +412,7 @@ function ckfsAdminMode() {
   const pin = prompt('Admin PIN:');
   if (pin === ckfsCfg.adminPin) {
     document.getElementById('ckfs-step1').style.display = 'none';
+    document.getElementById('ckfs-step2').style.display = 'none';
     document.getElementById('ckfs-admin').style.display  = '';
     ckfsRenderAdminList();
   } else if (pin !== null) {
@@ -413,6 +435,43 @@ function ckfsRenderAdminList() {
     '<button onclick="ckfsDelEmp(' + i + ')" style="background:none;border:none;color:#ff5252;font-size:16px;cursor:pointer;padding:4px 8px">✕</button>' +
     '</div>'
   ).join('');
+}
+
+// Sync employees from Google Sheets
+function ckfsSavePlataUrl() {
+  ckfsCfg.plataUrl = document.getElementById('ckfs-plata-url').value.trim();
+  ckfsSaveCfg();
+  alert('URL sačuvan');
+}
+
+async function ckfsSyncFromSheets() {
+  var url = (document.getElementById('ckfs-plata-url').value || '').trim();
+  if (!url) { alert('Unesite plata script URL'); return; }
+  var btn = document.getElementById('ckfs-sync-btn');
+  var orig = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '⏳ Učitavam...'; btn.disabled = true; }
+  try {
+    var r = await fetch(url + '?action=hub_employees', { cache:'no-store' });
+    var data = await r.json();
+    if (!Array.isArray(data) || !data.length) {
+      alert('Nema podataka ili neispravan format.\nProvjerite da li script ima action=hub_employees');
+      return;
+    }
+    var added = 0, updated = 0;
+    data.forEach(function(e) {
+      if (!e.name || !e.pin) return;
+      var ei = ckfsEmps.findIndex(function(x){ return x.name === e.name; });
+      if (ei >= 0) { ckfsEmps[ei] = Object.assign({}, ckfsEmps[ei], e); updated++; }
+      else { ckfsEmps.push(e); added++; }
+    });
+    ckfsSave();
+    ckfsRenderAdminList();
+    alert('Sinhronizovano!\nDodato: ' + added + ', ažurirano: ' + updated);
+  } catch(ex) {
+    alert('Greška: ' + ex.message);
+  } finally {
+    if (btn) { btn.textContent = orig || '↓ Sinhronizovati'; btn.disabled = false; }
+  }
 }
 
 function ckfsAddEmp() {
