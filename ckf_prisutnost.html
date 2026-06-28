@@ -958,6 +958,8 @@ async function psCheckin(type, localRec) {
   var name = psSession.name;
   var hoursStr = '';
 
+  var hoursDecimal = 0;
+
   if (type === 'arrive') {
     // Store arrival time locally
     localStorage.setItem(psAttKey(name), JSON.stringify({ time: timeStr, ts: now.getTime() }));
@@ -968,8 +970,9 @@ async function psCheckin(type, localRec) {
     // Calculate hours worked
     if (rec && rec.ts) {
       var diffMs = now.getTime() - rec.ts;
-      var hh = Math.floor(diffMs / 3600000);
-      var mm = Math.floor((diffMs % 3600000) / 60000);
+      hoursDecimal = diffMs / 3600000;
+      var hh = Math.floor(hoursDecimal);
+      var mm = Math.floor((hoursDecimal - hh) * 60);
       hoursStr = hh + 'h ' + (mm < 10 ? '0' : '') + mm + 'm';
     }
     // Clear local record (shift ended)
@@ -978,7 +981,7 @@ async function psCheckin(type, localRec) {
 
   showConfirm(type, name, timeStr, hoursStr);
 
-  // Send to Google Sheets (if URL is configured)
+  // Send to attendance Sheets (if attendance URL configured)
   if (scriptUrl) {
     try {
       await fetch(scriptUrl, {
@@ -991,6 +994,27 @@ async function psCheckin(type, localRec) {
         })
       });
     } catch {}
+  }
+
+  // Push worked hours directly into PLATA cells (on ODLAZAK only)
+  if (type === 'leave' && hoursDecimal > 0) {
+    var plataUrl = localStorage.getItem('ckfPlataUrl') || '';
+    var empPin   = (psSession.pin || '').toString().trim();
+    if (plataUrl && empPin) {
+      // Round to nearest 0.5h (как в плате)
+      var hoursRounded = Math.round(hoursDecimal * 2) / 2;
+      var dayNum = now.getDate();
+      var saveUrl = plataUrl
+        + '?action=save'
+        + '&pin='    + encodeURIComponent(empPin)
+        + '&target=' + encodeURIComponent(name)
+        + '&day='    + dayNum
+        + '&smena='  + encodeURIComponent('')
+        + '&hours='  + encodeURIComponent(hoursRounded)
+        + '&upl='    + encodeURIComponent(hoursRounded)
+        + '&ts='     + Date.now();
+      fetch(saveUrl, { cache: 'no-store' }).catch(function() {});
+    }
   }
 }
 

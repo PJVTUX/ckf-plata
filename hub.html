@@ -413,6 +413,7 @@ function ckfsLoginAsEmp(emp, idx) {
   var session = {
     name:      emp.name,
     position:  emp.position || 'worker',
+    pin:       emp.pin || '',
     colorIdx:  (idx || 0) % CKFS_COLORS.length,
     loginTime: Date.now(),
     remember:  remember
