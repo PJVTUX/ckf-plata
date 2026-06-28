@@ -108,7 +108,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
 @keyframes pop { 0%{transform:scale(.3);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
 .cf-title { font-size:30px; font-weight:800; color:#fff; margin-bottom:10px; }
 .cf-name  { font-size:22px; color:rgba(255,255,255,.85); margin-bottom:6px; }
-.cf-time  { font-size:18px; color:rgba(255,255,255,.7); margin-bottom:32px; }
+.cf-time  { font-size:18px; color:rgba(255,255,255,.7); margin-bottom:6px; }
+.cf-hours { font-size:26px; font-weight:800; color:#fff; margin-bottom:28px; min-height:32px; }
 .cf-auto  { font-size:15px; color:rgba(255,255,255,.5); }
 .cf-bar   { width:200px; height:4px; background:rgba(255,255,255,.25);
   border-radius:2px; margin:12px auto 0; overflow:hidden; }
@@ -297,6 +298,9 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       <div class="ac-status-lbl">Na poslu od:</div>
       <div class="ac-status-val" id="ps-status-val"></div>
     </div>
+    <div id="ps-no-url-warn" style="display:none; background:#ff6f00; color:#fff; border-radius:12px; padding:10px 14px; font-size:13px; font-weight:600; margin-bottom:8px; text-align:center; cursor:pointer;" onclick="showScreen('scr-admin')">
+      ⚠️ URL скрипта не задан — данные сохраняются локально.<br><span style="font-weight:400;font-size:12px;">Нажмите чтобы настроить →</span>
+    </div>
     <div class="ps-cam-wrap" id="ps-cam-wrap">
       <video id="ps-video" autoplay playsinline muted></video>
       <canvas id="ps-canvas"></canvas>
@@ -360,6 +364,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
   <div class="cf-title" id="cf-title"></div>
   <div class="cf-name"  id="cf-name"></div>
   <div class="cf-time"  id="cf-time"></div>
+  <div class="cf-hours" id="cf-hours"></div>
   <div class="cf-auto">Stranica se zatvara automatski...</div>
   <div class="cf-bar"><div class="cf-fill" id="cf-fill"></div></div>
 </div>
@@ -672,14 +677,16 @@ async function doCheckin(type) {
   }
 }
 
-function showConfirm(type, name, time) {
+function showConfirm(type, name, time, hoursStr) {
   const scr = document.getElementById("scr-confirm");
   const isArrive = type === "arrive";
   scr.className = "screen " + (isArrive ? "arrive-bg" : "leave-bg");
-  document.getElementById("cf-icon").textContent  = isArrive ? "✅" : "👋";
+  document.getElementById("cf-icon").textContent  = isArrive ? "☀️" : "🌙";
   document.getElementById("cf-title").textContent = isArrive ? "DOBRODOŠLI!" : "DOVIĐENJA!";
   document.getElementById("cf-name").textContent  = name;
   document.getElementById("cf-time").textContent  = isArrive ? "Dolazak: " + time : "Odlazak: " + time;
+  const hoursEl = document.getElementById("cf-hours");
+  if (hoursEl) hoursEl.textContent = (!isArrive && hoursStr) ? "⏱ Odrađeno: " + hoursStr : "";
   showScreen("scr-confirm");
 
   // Progress bar + auto-close
@@ -901,6 +908,9 @@ function setupPersonalScreen(s) {
   };
   tick(); psClockTimer = setInterval(tick, 1000);
   document.getElementById('ps-date').textContent = fmtDate(new Date());
+  // Show/hide no-URL warning
+  var _warn = document.getElementById('ps-no-url-warn');
+  if (_warn) _warn.style.display = scriptUrl ? 'none' : '';
   // Reset camera UI
   var _cw=document.getElementById('ps-cam-wrap'), _fh=document.getElementById('ps-fallback'),
       _fl=document.getElementById('ps-fallback-link'), _sh=document.getElementById('ps-scan-hint');
@@ -933,18 +943,52 @@ async function loadPsStatus(name) {
   } catch {}
 }
 
-async function psCheckin(type) {
+// ─── LOCAL ATTENDANCE HELPERS ─────────────────────────────────────────────────
+function psGetTodayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()<9?'0':'') + (d.getMonth()+1) + '-' + (d.getDate()<10?'0':'') + d.getDate();
+}
+function psAttKey(name) { return 'ckf_att_' + name + '_' + psGetTodayStr(); }
+
+async function psCheckin(type, localRec) {
   if (!psSession) return;
   psStopCamera();
-  const now = new Date();
-  const timeStr = fmtTime(now);
-  showConfirm(type, psSession.name, timeStr);
+  var now = new Date();
+  var timeStr = fmtTime(now);
+  var name = psSession.name;
+  var hoursStr = '';
+
+  if (type === 'arrive') {
+    // Store arrival time locally
+    localStorage.setItem(psAttKey(name), JSON.stringify({ time: timeStr, ts: now.getTime() }));
+  } else {
+    // Get arrival record
+    var rec = localRec;
+    if (!rec) { try { rec = JSON.parse(localStorage.getItem(psAttKey(name))); } catch {} }
+    // Calculate hours worked
+    if (rec && rec.ts) {
+      var diffMs = now.getTime() - rec.ts;
+      var hh = Math.floor(diffMs / 3600000);
+      var mm = Math.floor((diffMs % 3600000) / 60000);
+      hoursStr = hh + 'h ' + (mm < 10 ? '0' : '') + mm + 'm';
+    }
+    // Clear local record (shift ended)
+    localStorage.removeItem(psAttKey(name));
+  }
+
+  showConfirm(type, name, timeStr, hoursStr);
+
+  // Send to Google Sheets (if URL is configured)
   if (scriptUrl) {
     try {
       await fetch(scriptUrl, {
         method: 'POST', headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ event: type === 'arrive' ? 'arrive' : 'leave',
-          employee: psSession.name, position: psSession.position || '' })
+        body: JSON.stringify({
+          event:    type === 'arrive' ? 'arrive' : 'leave',
+          employee: name,
+          position: psSession.position || '',
+          arrivedAt: (localRec && localRec.time) ? localRec.time : ''
+        })
       });
     } catch {}
   }
@@ -1015,15 +1059,29 @@ function psScanFrame() {
 
 async function psAutoCheckin() {
   if (!psSession) return;
-  var type = 'arrive';
-  if (scriptUrl) {
-    try {
-      var r = await fetch(scriptUrl + '?action=empstatus&name=' + encodeURIComponent(psSession.name), { cache: 'no-store' });
-      var d = await r.json();
-      if (d && d.present) type = 'leave';
-    } catch(e) { console.warn('empstatus:', e); }
+  var name = psSession.name;
+
+  // 1. Check localStorage first — reliable, works offline
+  var localRec = null;
+  try { localRec = JSON.parse(localStorage.getItem(psAttKey(name))); } catch {}
+
+  var type;
+  if (localRec && localRec.ts) {
+    // Already recorded arrival today → this is departure
+    type = 'leave';
+  } else {
+    // No local record → arrival. Double-check server if URL available.
+    type = 'arrive';
+    if (scriptUrl) {
+      try {
+        var r = await fetch(scriptUrl + '?action=empstatus&name=' + encodeURIComponent(name), { cache: 'no-store' });
+        var d = await r.json();
+        if (d && d.present) type = 'leave';
+      } catch(e) {}
+    }
   }
-  psCheckin(type);
+
+  psCheckin(type, localRec);
 }
 
 function psCamFallback() {
@@ -1037,7 +1095,7 @@ function psCamFallback() {
   if (link)    link.style.display    = 'none';
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── INIT ─────────────────────────────────────────────────────────────────────────────
 loadData();
 updateCkDate();
 initWithSession();
