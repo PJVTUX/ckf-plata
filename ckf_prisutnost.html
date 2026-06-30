@@ -998,10 +998,27 @@ async function psCheckin(type, localRec) {
 
   // Push worked hours directly into PLATA cells (on ODLAZAK only)
   if (type === 'leave' && hoursDecimal > 0) {
+    // Get plata URL — try multiple sources
     var plataUrl = localStorage.getItem('ckfPlataUrl') || '';
-    var empPin   = (psSession.pin || '').toString().trim();
-    if (plataUrl && empPin) {
-      // Round to nearest 0.5h (как в плате)
+    if (!plataUrl) {
+      try { plataUrl = (JSON.parse(localStorage.getItem('ckf_hub_cfg_v1')) || {}).plataUrl || ''; } catch {}
+    }
+    // Final fallback: hardcoded default URL
+    if (!plataUrl) {
+      plataUrl = 'https://script.google.com/macros/s/AKfycbznMuXVkU2RfNo34296i5XfV0Kkp9oMlEIskUKgCd3sq66trfNzxgn7VyrVAuWnXr8f/exec';
+    }
+
+    // Get employee PIN — try session first, then hub employee list
+    var empPin = (psSession.pin || '').toString().trim();
+    if (!empPin) {
+      try {
+        var hubEmps = JSON.parse(localStorage.getItem('ckf_hub_emps_v1')) || [];
+        var foundEmp = hubEmps.find(function(e){ return e.name === name; });
+        if (foundEmp) empPin = (foundEmp.pin || '').toString().trim();
+      } catch {}
+    }
+
+    if (empPin) {
       var hoursRounded = Math.round(hoursDecimal * 2) / 2;
       var dayNum = now.getDate();
       var saveUrl = plataUrl
@@ -1013,7 +1030,25 @@ async function psCheckin(type, localRec) {
         + '&hours='  + encodeURIComponent(hoursRounded)
         + '&upl='    + encodeURIComponent(hoursRounded)
         + '&ts='     + Date.now();
-      fetch(saveUrl, { cache: 'no-store' }).catch(function() {});
+
+      fetch(saveUrl, { cache: 'no-store' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var el = document.getElementById('cf-hours');
+          if (el) {
+            el.textContent = (d && !d.error)
+              ? '⏱ ' + hoursRounded + 'h → ✓ Plata ažurirana'
+              : '⏱ ' + hoursRounded + 'h  (Plata: ' + (d && d.error ? d.error : 'greška') + ')';
+          }
+        })
+        .catch(function(err){
+          var el = document.getElementById('cf-hours');
+          if (el) el.textContent = '⏱ ' + hoursRounded + 'h  (Plata: nema veze)';
+        });
+    } else {
+      // No PIN found — show warning
+      var el = document.getElementById('cf-hours');
+      if (el && hoursStr) el.textContent = '⏱ ' + hoursStr + '  ⚠ PIN nije pronađen';
     }
   }
 }
