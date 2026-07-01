@@ -909,8 +909,11 @@ function setupPersonalScreen(s) {
   tick(); psClockTimer = setInterval(tick, 1000);
   document.getElementById('ps-date').textContent = fmtDate(new Date());
   // Show/hide no-URL warning
+  // Banner only if BOTH attendance URL and plata URL are missing
+  var _hasPlata = !!(localStorage.getItem('ckfPlataUrl') ||
+    (function(){ try { return (JSON.parse(localStorage.getItem('ckf_hub_cfg_v1')) || {}).plataUrl; } catch(e){} return ''; })());
   var _warn = document.getElementById('ps-no-url-warn');
-  if (_warn) _warn.style.display = scriptUrl ? 'none' : '';
+  if (_warn) _warn.style.display = (scriptUrl || _hasPlata) ? 'none' : '';
   // Reset camera UI
   var _cw=document.getElementById('ps-cam-wrap'), _fh=document.getElementById('ps-fallback'),
       _fl=document.getElementById('ps-fallback-link'), _sh=document.getElementById('ps-scan-hint');
@@ -1028,7 +1031,7 @@ async function psCheckin(type, localRec) {
         + '&day='    + dayNum
         + '&smena='  + encodeURIComponent('')
         + '&hours='  + encodeURIComponent(hoursRounded)
-        + '&upl='    + encodeURIComponent(hoursRounded)
+        + '&upl='    + encodeURIComponent('')
         + '&ts='     + Date.now();
 
       fetch(saveUrl, { cache: 'no-store' })

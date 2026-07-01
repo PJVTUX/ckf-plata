@@ -558,6 +558,31 @@ let currentPosition = "worker";
   }
 })();
 
+// ─── AUTO-LOGIN FROM HUB SESSION ─────────────────────────────────────
+async function autoLoginFromHubSession() {
+  try {
+    var sess = JSON.parse(localStorage.getItem('ckf_session') || 'null');
+    if (!sess || !sess.pin) return;
+    var pin = sess.pin.toString().trim();
+    if (pin.length < 4) return;
+    if (!customUrl) return;
+    // Show brief hint on PIN screen
+    var errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Auto-prijava...';
+    var res = await fetch(customUrl + '?pin=' + encodeURIComponent(pin) + '&ts=' + Date.now(), { cache: 'no-store' });
+    var data = await res.json();
+    if (data.error) {
+      if (errEl) errEl.textContent = ''; // clear hint, stay on PIN screen
+      return;
+    }
+    employeeData = data;
+    currentPin = pin;
+    pinValue = pin;
+    showApp();
+  } catch(e) {}
+}
+setTimeout(autoLoginFromHubSession, 100);
+
 function toggleTheme() {
   const isDark = document.body.classList.toggle("dark-theme");
   document.getElementById("theme-btn").textContent = isDark ? "☀️" : "🌙";
