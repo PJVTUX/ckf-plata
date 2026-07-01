@@ -309,15 +309,22 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
   padding:12px 16px; color:#fff; font-size:13px; font-weight:800; letter-spacing:.8px;
 }
 .dug-row {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:10px 16px; border-bottom:1px solid var(--sep);
+  display:flex; align-items:center;
+  padding:10px 16px; border-bottom:1px solid var(--sep); gap:4px;
 }
 .dug-row:last-child { border-bottom:none; }
-.dug-row .dr-name { font-size:13px; font-weight:600; color:var(--text); letter-spacing:.3px; }
-.dug-row .dr-val  { font-size:14px; font-weight:700; color:var(--accent); }
+.dug-row .dr-name { font-size:13px; font-weight:600; color:var(--text); letter-spacing:.3px; flex:1; }
+.dug-row .dr-val  { font-size:13px; font-weight:700; color:var(--accent); min-width:70px; text-align:right; }
+.dug-row .dr-upl  { font-size:12px; font-weight:600; color:#2e7d32; min-width:70px; text-align:right; }
 .dug-row.total    { background:#fff3f3; }
 .dug-row.total .dr-name { font-size:14px; font-weight:800; letter-spacing:.5px; }
-.dug-row.total .dr-val  { font-size:16px; font-weight:800; }
+.dug-row.total .dr-val  { font-size:15px; font-weight:800; }
+.dug-row.total .dr-upl  { font-size:14px; font-weight:800; color:#1b5e20; }
+.dug-col-hdr { display:flex; padding:4px 16px 4px; gap:4px; background:#fafafa; border-bottom:1px solid var(--sep); }
+.dug-col-hdr span { font-size:10px; font-weight:700; letter-spacing:.5px; color:#999; text-transform:uppercase; }
+.dug-col-hdr .dc-name { flex:1; }
+.dug-col-hdr .dc-val  { min-width:70px; text-align:right; }
+body.dark-theme .dug-col-hdr { background:#1a1a2a; }
 
 /* uppercase labels globally */
 .sr-label, .er-label { text-transform:uppercase; letter-spacing:.4px; font-size:11px; }
@@ -475,34 +482,13 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
 </head>
 <body>
 
-<!-- ═══ PIN SCREEN ═══════════════════════════════════════════════════ -->
-<div id="pin-screen">
+<!-- ═══ LOADING SCREEN (replaces PIN) ════════════════════════════════ -->
+<div id="pin-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#1c1c1e;">
   <div class="pin-logo">
     <span class="name">CKF</span>
     <span class="tag">PLATA</span>
   </div>
-  <p class="pin-subtitle">Unesite vaš PIN za pristup</p>
-  <div class="pin-dots" id="pin-dots">
-    <div class="pin-dot" id="d0"></div>
-    <div class="pin-dot" id="d1"></div>
-    <div class="pin-dot" id="d2"></div>
-    <div class="pin-dot" id="d3"></div>
-  </div>
-  <div class="pin-keypad">
-    <button class="pin-key" onclick="keyPress('1')">1</button>
-    <button class="pin-key" onclick="keyPress('2')">2<div class="sub">ABC</div></button>
-    <button class="pin-key" onclick="keyPress('3')">3<div class="sub">DEF</div></button>
-    <button class="pin-key" onclick="keyPress('4')">4<div class="sub">GHI</div></button>
-    <button class="pin-key" onclick="keyPress('5')">5<div class="sub">JKL</div></button>
-    <button class="pin-key" onclick="keyPress('6')">6<div class="sub">MNO</div></button>
-    <button class="pin-key" onclick="keyPress('7')">7<div class="sub">PQRS</div></button>
-    <button class="pin-key" onclick="keyPress('8')">8<div class="sub">TUV</div></button>
-    <button class="pin-key" onclick="keyPress('9')">9<div class="sub">WXYZ</div></button>
-    <button class="pin-key del" onclick="keyDel()">⌫</button>
-    <button class="pin-key" onclick="keyPress('0')">0</button>
-    <button class="pin-key ok" onclick="keySubmit()">OK</button>
-  </div>
-  <div class="pin-error" id="pin-error"></div>
+  <div id="pin-error" style="color:#aaa;font-size:14px;margin-top:16px;text-align:center;">Učitavanje...</div>
   <span class="pin-cfg" onclick="showCfg()">⚙ Podešavanja</span>
 </div>
 
@@ -559,27 +545,42 @@ let currentPosition = "worker";
 })();
 
 // ─── AUTO-LOGIN FROM HUB SESSION ─────────────────────────────────────
+// Pin is always read from ckf_session — no manual PIN entry screen
 async function autoLoginFromHubSession() {
+  var errEl = document.getElementById('pin-error');
   try {
     var sess = JSON.parse(localStorage.getItem('ckf_session') || 'null');
-    if (!sess || !sess.pin) return;
+    if (!sess || !sess.pin) {
+      // Try employees list as fallback if session has name
+      if (sess && sess.name) {
+        var emps = JSON.parse(localStorage.getItem('ckf_hub_emps_v1') || '[]');
+        var emp = emps.find(function(e){ return e.name === sess.name; });
+        if (emp && emp.pin) sess.pin = emp.pin;
+      }
+      if (!sess || !sess.pin) {
+        if (errEl) errEl.innerHTML = 'Nema aktivne sesije.<br><small>Prijavite se putem <a href="hub.html" style="color:#e31e24">Hub-a</a></small>';
+        return;
+      }
+    }
     var pin = sess.pin.toString().trim();
-    if (pin.length < 4) return;
-    if (!customUrl) return;
-    // Show brief hint on PIN screen
-    var errEl = document.getElementById('pin-error');
-    if (errEl) errEl.textContent = 'Auto-prijava...';
+    if (!customUrl) {
+      if (errEl) errEl.innerHTML = 'URL nije postavljen.<br><small onclick="showCfg()" style="color:#e31e24;cursor:pointer">⚙ Podešavanja</small>';
+      return;
+    }
+    if (errEl) errEl.textContent = 'Učitavanje podataka...';
     var res = await fetch(customUrl + '?pin=' + encodeURIComponent(pin) + '&ts=' + Date.now(), { cache: 'no-store' });
     var data = await res.json();
     if (data.error) {
-      if (errEl) errEl.textContent = ''; // clear hint, stay on PIN screen
+      if (errEl) errEl.innerHTML = data.error + '<br><small><a href="hub.html" style="color:#e31e24">← Nazad na Hub</a></small>';
       return;
     }
     employeeData = data;
     currentPin = pin;
     pinValue = pin;
     showApp();
-  } catch(e) {}
+  } catch(e) {
+    if (errEl) errEl.innerHTML = 'Greška veze.<br><small onclick="autoLoginFromHubSession()" style="color:#e31e24;cursor:pointer">↺ Pokušaj ponovo</small>';
+  }
 }
 setTimeout(autoLoginFromHubSession, 100);
 
@@ -770,24 +771,36 @@ function renderPeriodAdmin(period) {
   }
 
   // ── DUGOVI ZA PLATU table ──────────────────────────────────────
-  const totD = recs.reduce((s, r) => s + (parseFloat(r.DUG) || 0), 0);
+  const totD   = recs.reduce((s, r) => s + (parseFloat(r.DUG) || 0), 0);
+  const totUpl = recs.reduce((s, r) => s + (parseFloat(r.UPLACENO) || 0), 0);
+  const dugRecs = recs.filter(r => (parseFloat(r.DUG) || 0) > 0);
 
   html += `<div class="dug-table">
-    <div class="dug-table-hdr">DUGOVI ZA PLATU</div>`;
+    <div class="dug-table-hdr">DUGOVI ZA PLATU</div>
+    <div class="dug-col-hdr">
+      <span class="dc-name">Radnik</span>
+      <span class="dc-val">Dug</span>
+      <span class="dc-val" style="color:#2e7d32">Uplaćeno</span>
+    </div>`;
 
-  for (const rec of recs) {
-    const d = parseFloat(rec.DUG) || 0;
-    if (d > 0) {
-      html += `<div class="dug-row">
-        <span class="dr-name">${rec.radnik}</span>
-        <span class="dr-val">${fmt(d)} €</span>
-      </div>`;
-    }
+  for (const rec of dugRecs) {
+    const d   = parseFloat(rec.DUG) || 0;
+    const upl = parseFloat(rec.UPLACENO) || 0;
+    html += `<div class="dug-row">
+      <span class="dr-name">${rec.radnik}</span>
+      <span class="dr-val">${fmt(d)} €</span>
+      <span class="dr-upl">${upl > 0 ? fmt(upl) + ' €' : '—'}</span>
+    </div>`;
+  }
+
+  if (dugRecs.length === 0) {
+    html += `<div class="dug-row"><span class="dr-name" style="color:#888">Nema dugova ✓</span></div>`;
   }
 
   html += `<div class="dug-row total">
     <span class="dr-name">UKUPNO</span>
     <span class="dr-val">${fmt(totD)} €</span>
+    <span class="dr-upl">${totUpl > 0 ? fmt(totUpl) + ' €' : '—'}</span>
   </div></div>`;
 
   html += '</div>';

@@ -199,6 +199,14 @@ header {
 .drag-handle:active { cursor:grabbing; }
 .item.dragging { opacity:.4; }
 .item.drag-over { border-top:2px solid var(--red); }
+/* Delete button (admin) */
+.item-del { flex-shrink:0; width:32px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; opacity:.55; border-left:1px solid var(--sep); }
+.item-del:active { opacity:1; }
+/* Admin cat toolbar */
+.cat-admin-bar { display:flex; gap:6px; padding:6px 12px 2px; }
+.cat-admin-btn { font-size:11px; font-weight:600; padding:4px 10px; border-radius:20px; border:1px solid #ddd; background:#f5f5f5; cursor:pointer; color:#555; }
+.cat-admin-btn:active { background:#e0e0e0; }
+.cat-admin-btn.danger { border-color:#fcc; background:#fff3f3; color:#c00; }
 
 /* States */
 .item.bought .item-cross { background:var(--bought-bg); }
@@ -678,7 +686,8 @@ function render() {
 
   getCats().forEach(cat => {
     const extra    = ST[`${cat.id}::_extra`] || [];
-    let allItems   = [...cat.items, ...extra];
+    const deleted  = ST[`${cat.id}::_deleted`] || [];
+    let allItems   = [...cat.items, ...extra].filter(i => !deleted.includes(i));
 
     // Apply custom order if exists
     if (itemOrders[cat.id]) {
@@ -717,6 +726,11 @@ function render() {
           id="ai-${cat.id}" onkeydown="if(event.key==='Enter')addItem('${cat.id}')">
         <button class="add-btn" onclick="addItem('${cat.id}')">+</button>
       </div>` : "";
+    const adminBarHtml = isAdmin ? `
+      <div class="cat-admin-bar">
+        <button class="cat-admin-btn" onclick="sortCatAlpha('${cat.id}')">🔤 Sortiraj A-Z</button>
+        <button class="cat-admin-btn danger" onclick="deleteCat('${cat.id}')">🗑 Obriši kategoriju</button>
+      </div>` : "";
 
     block.innerHTML = `
       <div class="cat-hdr" onclick="toggleCat('${cat.id}')">
@@ -732,6 +746,7 @@ function render() {
           <span class="chevron">▼</span>
         </div>
       </div>
+      ${adminBarHtml}
       <div class="items-wrap" id="iw-${cat.id}">
         ${itemsHtml}
         ${addRowHtml}
@@ -763,6 +778,7 @@ function itemRow(catId, item) {
   const cls    = (bought ? "bought " : "") + (needed ? "needed" : "");
   const s      = item.replace(/'/g, "\'");
   const drag   = isAdmin ? `<div class="drag-handle" data-item="${item}">≡</div>` : "";
+  const delBtn = isAdmin ? `<div class="item-del" onclick="deleteItem('${catId}','${s}')">🗑</div>` : "";
   const qtyChip = qty
     ? `<span class="qty-chip">${qty}</span>`
     : `<span class="qty-chip empty">+</span>`;
@@ -776,6 +792,7 @@ function itemRow(catId, item) {
       </div>
     </div>
     <div class="item-name">${item}</div>
+    ${delBtn}
     <div class="item-qty" onclick="openQtyModal('${catId}','${s}')">${qtyChip}</div>
     <div class="item-need" onclick="toggleNeeded('${catId}','${s}')">
       <div class="need-box">
@@ -1030,8 +1047,62 @@ function toggleBought(catId, item) {
 }
 function toggleNeeded(catId, item) {
   const k = gk(catId, item, "needed");
-  ST[k] = !ST[k]; saveLocal(); render(); pushToServer();
+  ST[k] = !ST[k];
+  if (!ST[k]) delete ST[gk(catId, item, "qty")]; // clear qty when unchecking
+  saveLocal(); render(); pushToServer();
 }
+
+function deleteItem(catId, item) {
+  // Remove from extra items list
+  const ek = `${catId}::_extra`;
+  const extra = ST[ek] || [];
+  const idx = extra.indexOf(item);
+  if (idx !== -1) {
+    extra.splice(idx, 1);
+    ST[ek] = extra;
+  } else {
+    // Built-in item: add to deleted list
+    const dk = `${catId}::_deleted`;
+    if (!ST[dk]) ST[dk] = [];
+    if (!ST[dk].includes(item)) ST[dk].push(item);
+  }
+  // Clear all state for this item
+  ['needed','bought','qty','urgent'].forEach(f => delete ST[gk(catId, item, f)]);
+  // Remove from order
+  if (itemOrders[catId]) {
+    itemOrders[catId] = itemOrders[catId].filter(i => i !== item);
+    localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders));
+  }
+  saveLocal(); render(); schedulePush();
+}
+function sortCatAlpha(catId) {
+  const extra   = ST[`${catId}::_extra`] || [];
+  const deleted = ST[`${catId}::_deleted`] || [];
+  const cat     = getCats().find(c => c.id === catId);
+  if (!cat) return;
+  const allItems = [...cat.items, ...extra].filter(i => !deleted.includes(i));
+  itemOrders[catId] = [...allItems].sort((a, b) => a.localeCompare(b));
+  localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders));
+  render();
+}
+
+function deleteCat(catId) {
+  if (!confirm('Obrisati cijelu kategoriju?')) return;
+  // Remove from customCats if it's a custom category
+  customCats = customCats.filter(c => c.id !== catId);
+  localStorage.setItem(CAT_KEY, JSON.stringify(customCats));
+  // For built-in: mark all items as deleted
+  const cat = getCats().find(c => c.id === catId);
+  if (cat) {
+    const extra = ST[`${catId}::_extra`] || [];
+    const deleted = ST[`${catId}::_deleted`] || [];
+    const toDelete = [...cat.items, ...extra].filter(i => !deleted.includes(i));
+    ST[`${catId}::_deleted`] = [...deleted, ...toDelete];
+  }
+  if (itemOrders[catId]) { delete itemOrders[catId]; localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders)); }
+  saveLocal(); render(); schedulePush();
+}
+
 function toggleCat(id) { document.getElementById("cb-" + id).classList.toggle("closed"); }
 function doSearch(v) { searchQ = v; render(); }
 

@@ -115,6 +115,22 @@ header { background:#1a3a1a; padding:14px 16px 12px; position:sticky; top:0; z-i
 .drag-handle:active { cursor:grabbing; }
 .item.dragging { opacity:.4; }
 .item.drag-over { border-top:2px solid var(--green); }
+/* Delete + assignee (admin) */
+.item-del { flex-shrink:0; width:30px; display:flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; opacity:.5; border-left:1px solid var(--sep); }
+.item-del:active { opacity:1; }
+.item-assignee { flex-shrink:0; min-width:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-left:1px solid var(--sep); padding:0 6px; }
+.item-assignee-view { flex-shrink:0; font-size:10px; font-weight:700; color:#555; padding:0 5px; border-left:1px solid var(--sep); display:flex; align-items:center; }
+.asgn-name { font-size:10px; font-weight:700; color:#1565c0; background:#e3f2fd; border-radius:8px; padding:2px 6px; white-space:nowrap; }
+.asgn-empty { font-size:16px; opacity:.4; }
+/* Admin cat toolbar */
+.cat-admin-bar { display:flex; gap:6px; padding:6px 12px 2px; }
+.cat-admin-btn { font-size:11px; font-weight:600; padding:4px 10px; border-radius:20px; border:1px solid #ddd; background:#f5f5f5; cursor:pointer; color:#555; }
+.cat-admin-btn.danger { border-color:#fcc; background:#fff3f3; color:#c00; }
+/* Assign modal */
+#modal-assign .assign-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+#modal-assign .assign-btn { padding:12px 16px; border-radius:10px; border:1px solid var(--sep); background:var(--card); font-size:15px; font-weight:600; cursor:pointer; text-align:left; }
+#modal-assign .assign-btn:active { background:#e3f2fd; }
+#modal-assign .assign-btn.active { background:#1565c0; color:#fff; border-color:#1565c0; }
 /* ADD ROW */
 .add-row { display:flex; gap:8px; padding:10px 12px; background:var(--card); border-top:1px solid var(--sep); }
 .add-input { flex:1; border:1.5px solid var(--sep); border-radius:9px; padding:7px 10px; font-size:16px; color:var(--text); outline:none; background:#fafafa; }
@@ -317,6 +333,17 @@ header { background:#1a3a1a; padding:14px 16px 12px; position:sticky; top:0; z-i
   </div>
 </div>
 
+<!-- Assign modal -->
+<div class="overlay" id="modal-assign" onclick="bgClose(event,'modal-assign')">
+  <div class="sheet">
+    <h3 class="sh-title">👤 Odgovorni za zadatak</h3>
+    <div class="assign-list" id="assign-list"></div>
+    <div class="modal-btns" style="margin-top:12px">
+      <button class="mbtn cancel" onclick="hideModal('modal-assign')">Otkaži</button>
+    </div>
+  </div>
+</div>
+
 <div class="fab-wrap">
   <button class="fab" id="fab" onclick="fabAction()">🍳 Priprema kuhinje</button>
 </div>
@@ -430,7 +457,8 @@ function render() {
 
   cats.forEach(cat => {
     const extra    = ST[cat.id + "::_extra"] || [];
-    let allItems   = [...cat.items, ...extra];
+    const deleted  = ST[cat.id + "::_deleted"] || [];
+    let allItems   = [...cat.items, ...extra].filter(i => !deleted.includes(i));
     if (itemOrders[cat.id]) {
       const ord = itemOrders[cat.id];
       allItems = [...new Set([...ord, ...allItems])].filter(i => allItems.includes(i));
@@ -454,6 +482,11 @@ function render() {
     const badgeTxt  = allDone ? "✓ Sve obavljeno" : urgentCnt > 0 ? urgentCnt + " hitno" : (doneCnt + "/" + visible.length);
     const itemsHtml = visible.map(i => itemRow(cat.id, i)).join("");
     const addRowHtml = isAdmin ? `<div class="add-row"><input class="add-input" type="text" placeholder="Novi zadatak..." id="ai-${cat.id}" onkeydown="if(event.key==='Enter')addItem('${cat.id}')"><button class="add-btn" onclick="addItem('${cat.id}')">+</button></div>` : "";
+    const adminBarHtml = isAdmin ? `
+      <div class="cat-admin-bar">
+        <button class="cat-admin-btn" onclick="sortCatAlpha('${cat.id}')">🔤 Sortiraj A-Z</button>
+        <button class="cat-admin-btn danger" onclick="deletePripCat('${cat.id}')">🗑 Obriši kategoriju</button>
+      </div>` : "";
     const block = document.createElement("div");
     block.className = "cat-block";
     block.id = "cb-" + cat.id;
@@ -471,6 +504,7 @@ function render() {
           <span class="chevron">▼</span>
         </div>
       </div>
+      ${adminBarHtml}
       <div class="items-wrap" id="iw-${cat.id}">
         ${itemsHtml}
         ${addRowHtml}
@@ -496,7 +530,12 @@ function itemRow(catId, item) {
   const note   = ST[gk(catId,item,"note")] || "";
   const cls    = (done ? "done " : "") + (urgent ? "urgent" : "");
   const s      = item.replace(/'/g, "\\'");
-  const drag   = isAdmin ? `<div class="drag-handle" data-item="${item}">≡</div>` : "";
+  const drag      = isAdmin ? `<div class="drag-handle" data-item="${item}">≡</div>` : "";
+  const delBtn    = isAdmin ? `<div class="item-del" onclick="deletePripItem('${catId}','${s}')">🗑</div>` : "";
+  const assignee  = ST[gk(catId, item, "assignee")] || "";
+  const assigneeChip = isAdmin
+    ? `<div class="item-assignee" onclick="openAssignModal('${catId}','${s}')">${assignee ? '<span class="asgn-name">'+assignee+'</span>' : '<span class="asgn-empty">👤</span>'}</div>`
+    : (assignee ? `<div class="item-assignee-view">${assignee}</div>` : "");
   const noteChip = note
     ? `<span class="note-chip">${note}</span>`
     : `<span class="note-chip empty">+</span>`;
@@ -508,6 +547,8 @@ function itemRow(catId, item) {
       </div>
     </div>
     <div class="item-name">${item}</div>
+    ${assigneeChip}
+    ${delBtn}
     <div class="item-note" onclick="openNoteModal('${catId}','${s}')">${noteChip}</div>
     <div class="item-urgent-btn" onclick="toggleUrgent('${catId}','${s}')">
       <div class="urgent-box">!</div>
@@ -596,6 +637,78 @@ function addItem(catId) {
   inp.value = ""; saveLocal(); pushToServer(); render();
   document.getElementById("cb-" + catId)?.classList.remove("closed");
 }
+
+function deletePripItem(catId, item) {
+  const ek = `${catId}::_extra`;
+  const extra = ST[ek] || [];
+  const idx = extra.indexOf(item);
+  if (idx !== -1) {
+    extra.splice(idx, 1);
+    ST[ek] = extra;
+  } else {
+    const dk = `${catId}::_deleted`;
+    if (!ST[dk]) ST[dk] = [];
+    if (!ST[dk].includes(item)) ST[dk].push(item);
+  }
+  ['done','urgent','note','assignee'].forEach(f => delete ST[gk(catId, item, f)]);
+  if (itemOrders[catId]) {
+    itemOrders[catId] = itemOrders[catId].filter(i => i !== item);
+    localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders));
+  }
+  saveLocal(); pushToServer(); render();
+}
+
+function sortCatAlpha(catId) {
+  const extra   = ST[`${catId}::_extra`] || [];
+  const deleted = ST[`${catId}::_deleted`] || [];
+  const cat     = getCats().find(c => c.id === catId);
+  if (!cat) return;
+  const allItems = [...cat.items, ...extra].filter(i => !deleted.includes(i));
+  itemOrders[catId] = [...allItems].sort((a, b) => a.localeCompare(b));
+  localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders));
+  render();
+}
+
+function deletePripCat(catId) {
+  if (!confirm('Obrisati cijelu kategoriju?')) return;
+  customCats = customCats.filter(c => c.id !== catId);
+  localStorage.setItem(CAT_KEY, JSON.stringify(customCats));
+  const cat = getCats().find(c => c.id === catId);
+  if (cat) {
+    const extra = ST[`${catId}::_extra`] || [];
+    const deleted = ST[`${catId}::_deleted`] || [];
+    ST[`${catId}::_deleted`] = [...deleted, ...cat.items, ...extra].filter((v,i,a)=>a.indexOf(v)===i);
+  }
+  if (itemOrders[catId]) { delete itemOrders[catId]; localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders)); }
+  saveLocal(); pushToServer(); render();
+}
+
+// ── ASSIGNEE MODAL ──────────────────────────────────────────────────────────
+let assignTarget = null;
+function openAssignModal(catId, item) {
+  assignTarget = { catId, item };
+  const current = ST[gk(catId, item, 'assignee')] || '';
+  // Load employees from hub
+  const emps = (function(){ try { return JSON.parse(localStorage.getItem('ckf_hub_emps_v1')) || []; } catch(e){ return []; } })();
+  const names = emps.length ? emps.map(e => e.name) : [];
+  const list = document.getElementById('assign-list');
+  if (!list) return;
+  list.innerHTML = `
+    <button class="assign-btn ${!current ? 'active' : ''}" onclick="saveAssign('')">— Niko</button>
+    ${names.map(n => `<button class="assign-btn ${current===n?'active':''}" onclick="saveAssign('${n}')">${n}</button>`).join('')}
+  `;
+  showModal('modal-assign');
+}
+function saveAssign(name) {
+  if (!assignTarget) return;
+  const k = gk(assignTarget.catId, assignTarget.item, 'assignee');
+  if (name) ST[k] = name; else delete ST[k];
+  saveLocal(); pushToServer();
+  hideModal('modal-assign');
+  assignTarget = null;
+  render();
+}
+
 function addCategory() {
   const icon = document.getElementById("nc-icon").value.trim() || "🍳";
   const name = document.getElementById("nc-name").value.trim();
