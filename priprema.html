@@ -643,8 +643,14 @@ function renderByEmployee() {
   const q = searchQ.toLowerCase().trim();
   let totalDone = 0, totalTasks = 0, anyVisible = false;
 
-  // Collect all tasks grouped by assignee
+  // Pre-populate empMap with ALL hub employees so they show even with 0 tasks
   const empMap = {}; // { empName: [{catId, item}] }
+  try {
+    const hubEmps = JSON.parse(localStorage.getItem('ckf_hub_emps_v1')) || [];
+    hubEmps.forEach(e => { if (e.name) empMap[e.name] = []; });
+  } catch {}
+
+  // Collect all tasks grouped by assignee
   getCats().forEach(cat => {
     const extra   = ST[cat.id + "::_extra"] || [];
     const deleted = ST[cat.id + "::_deleted"] || [];
