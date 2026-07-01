@@ -656,7 +656,7 @@ function renderByEmployee() {
     allItems.forEach(item => {
       if (q && !item.toLowerCase().includes(q)) return;
       if (filterMode && ST[gk(cat.id, item, "done")]) return;
-      const assignee = ST[gk(cat.id, item, "assignee")] || "— Niko";
+      const assignee = ST[gk(cat.id, item, "assignee")] || "— Nije dodijeljeno";
       if (!empMap[assignee]) empMap[assignee] = [];
       empMap[assignee].push({ catId: cat.id, item });
     });
@@ -664,10 +664,10 @@ function renderByEmployee() {
 
   container.innerHTML = "";
 
-  // Sort: named employees alphabetically first, "— Niko" last
+  // Sort: named employees alphabetically first, "— Nije dodijeljeno" last
   const empNames = Object.keys(empMap).sort((a, b) => {
-    if (a === "— Niko") return 1;
-    if (b === "— Niko") return -1;
+    if (a === "— Nije dodijeljeno") return 1;
+    if (b === "— Nije dodijeljeno") return -1;
     return a.localeCompare(b);
   });
 
@@ -689,7 +689,7 @@ function renderByEmployee() {
     block.innerHTML = `
       <div class="cat-hdr" onclick="this.parentElement.classList.toggle('closed')">
         <div class="cat-left">
-          <span class="cat-icon">${empName === "— Niko" ? "❓" : "👤"}</span>
+          <span class="cat-icon">${empName === "— Nije dodijeljeno" ? "❓" : "👤"}</span>
           <div>
             <div class="cat-name">${empName}</div>
             <div class="cat-sub">${tasks.length} zadataka</div>
@@ -789,7 +789,7 @@ function openAssignModal(catId, item) {
   const list = document.getElementById('assign-list');
   if (!list) return;
   list.innerHTML = `
-    <button class="assign-btn ${!current ? 'active' : ''}" onclick="saveAssign('')">— Niko</button>
+    <button class="assign-btn ${!current ? 'active' : ''}" onclick="saveAssign('')">— Nije dodijeljeno</button>
     ${names.map(n => `<button class="assign-btn ${current===n?'active':''}" onclick="saveAssign('${n}')">${n}</button>`).join('')}
   `;
   showModal('modal-assign');
