@@ -1088,11 +1088,11 @@ function sortCatAlpha(catId) {
 
 function deleteCat(catId) {
   if (!confirm('Obrisati cijelu kategoriju?')) return;
-  // Remove from customCats if it's a custom category
+  // Find BEFORE removing (getCats() won't find custom cats after filter)
+  const cat = getCats().find(c => c.id === catId);
   customCats = customCats.filter(c => c.id !== catId);
   localStorage.setItem(CAT_KEY, JSON.stringify(customCats));
-  // For built-in: mark all items as deleted
-  const cat = getCats().find(c => c.id === catId);
+  // Mark all items as deleted
   if (cat) {
     const extra = ST[`${catId}::_extra`] || [];
     const deleted = ST[`${catId}::_deleted`] || [];

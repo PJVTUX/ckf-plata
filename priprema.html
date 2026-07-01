@@ -197,6 +197,7 @@ header { background:#1a3a1a; padding:14px 16px 12px; position:sticky; top:0; z-i
         <span class="sync-txt" id="sync-txt">–</span>
       </div>
       <button class="hbtn" id="filter-btn" onclick="toggleFilter()">⏳ Preostalo</button>
+      <button class="hbtn" id="emp-filter-btn" onclick="showEmpFilterModal()">👤</button>
       <button class="hbtn" onclick="showModal('modal-cfg')">⚙</button>
     </div>
   </div>
@@ -361,6 +362,7 @@ let customUrl = "";
 let adminPin  = "";
 let isAdmin   = false;
 let filterMode = false;
+let empViewMode = false;
 let searchQ   = "";
 let customCats = [];
 let itemOrders = {};
@@ -449,6 +451,7 @@ function updateProgress(done, total) {
 }
 
 function render() {
+  if (empViewMode) { renderByEmployee(); return; }
   const container = document.getElementById("container");
   const q = searchQ.toLowerCase().trim();
   let totalDone = 0, totalTasks = 0, anyVisible = false;
@@ -559,7 +562,11 @@ function itemRow(catId, item) {
 // ─── FAB ─────────────────────────────────────────────────────────────────────
 function updateFab(done, total) {
   const fab = document.getElementById("fab");
-  if (filterMode) {
+  if (empViewMode) {
+    const left = total - done;
+    fab.textContent = left > 0 ? "👤 Po radniku · " + left + " preostalo" : "👤 Po radniku · Sve obavljeno!";
+    fab.classList.add("filter-active");
+  } else if (filterMode) {
     fab.textContent = "✕ Prikaži sve zadatke";
     fab.classList.add("filter-active");
   } else if (total > 0 && done === total) {
@@ -572,7 +579,8 @@ function updateFab(done, total) {
   }
 }
 function fabAction() {
-  if (filterMode) { toggleFilter(); return; }
+  if (empViewMode) { showEmpFilterModal(); return; }
+  if (filterMode)  { toggleFilter(); return; }
   const done  = parseInt(document.getElementById("pc").textContent);
   const total = parseInt(document.getElementById("pt").textContent);
   if (total > 0 && done === total) { showModal("modal-reset-done"); return; }
@@ -623,6 +631,93 @@ function toggleFilter() {
   render();
 }
 
+// ─── EMPLOYEE VIEW ────────────────────────────────────────────────────────────
+function showEmpFilterModal() {
+  empViewMode = !empViewMode;
+  document.getElementById("emp-filter-btn").classList.toggle("active", empViewMode);
+  render();
+}
+
+function renderByEmployee() {
+  const container = document.getElementById("container");
+  const q = searchQ.toLowerCase().trim();
+  let totalDone = 0, totalTasks = 0, anyVisible = false;
+
+  // Collect all tasks grouped by assignee
+  const empMap = {}; // { empName: [{catId, item}] }
+  getCats().forEach(cat => {
+    const extra   = ST[cat.id + "::_extra"] || [];
+    const deleted = ST[cat.id + "::_deleted"] || [];
+    let allItems  = [...cat.items, ...extra].filter(i => !deleted.includes(i));
+    if (itemOrders[cat.id]) {
+      const ord = itemOrders[cat.id];
+      allItems = [...new Set([...ord, ...allItems])].filter(i => allItems.includes(i));
+    }
+    allItems.forEach(item => {
+      if (q && !item.toLowerCase().includes(q)) return;
+      if (filterMode && ST[gk(cat.id, item, "done")]) return;
+      const assignee = ST[gk(cat.id, item, "assignee")] || "— Niko";
+      if (!empMap[assignee]) empMap[assignee] = [];
+      empMap[assignee].push({ catId: cat.id, item });
+    });
+  });
+
+  container.innerHTML = "";
+
+  // Sort: named employees alphabetically first, "— Niko" last
+  const empNames = Object.keys(empMap).sort((a, b) => {
+    if (a === "— Niko") return 1;
+    if (b === "— Niko") return -1;
+    return a.localeCompare(b);
+  });
+
+  empNames.forEach(empName => {
+    const tasks     = empMap[empName];
+    const doneCnt   = tasks.filter(t => ST[gk(t.catId, t.item, "done")]).length;
+    const urgentCnt = tasks.filter(t => ST[gk(t.catId, t.item, "urgent")] && !ST[gk(t.catId, t.item, "done")]).length;
+    totalDone  += doneCnt;
+    totalTasks += tasks.length;
+    anyVisible = true;
+    const allDone   = tasks.length > 0 && doneCnt === tasks.length;
+    const hasUrgent = urgentCnt > 0;
+    const badgeTxt  = allDone ? "✓ Sve" : urgentCnt > 0 ? urgentCnt + " hitno" : (doneCnt + "/" + tasks.length);
+    const itemsHtml = tasks.map(t => itemRow(t.catId, t.item)).join("");
+    const safeId    = empName.replace(/[^a-zA-Z0-9]/g, "_");
+    const block = document.createElement("div");
+    block.className = "cat-block";
+    block.id = "emp-" + safeId;
+    block.innerHTML = `
+      <div class="cat-hdr" onclick="this.parentElement.classList.toggle('closed')">
+        <div class="cat-left">
+          <span class="cat-icon">${empName === "— Niko" ? "❓" : "👤"}</span>
+          <div>
+            <div class="cat-name">${empName}</div>
+            <div class="cat-sub">${tasks.length} zadataka</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="cat-badge ${allDone ? "all-done" : hasUrgent ? "has-urgent" : ""}">${badgeTxt}</div>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="items-wrap" id="ew-${safeId}">
+        ${itemsHtml}
+      </div>`;
+    container.appendChild(block);
+  });
+
+  if (empNames.length === 0) {
+    const info = document.createElement("div");
+    info.style.cssText = "text-align:center;color:#888;padding:32px 16px;font-size:14px;";
+    info.textContent = "Nijedan zadatak nema dodijeljivog radnika.";
+    container.appendChild(info);
+  }
+
+  document.getElementById("empty").style.display = (anyVisible || empNames.length > 0) ? "none" : "block";
+  updateProgress(totalDone, totalTasks);
+  updateFab(totalDone, totalTasks);
+}
+
 // ─── ADD ITEM / CATEGORY ─────────────────────────────────────────────────────
 function addItem(catId) {
   const inp = document.getElementById("ai-" + catId);
@@ -671,9 +766,9 @@ function sortCatAlpha(catId) {
 
 function deletePripCat(catId) {
   if (!confirm('Obrisati cijelu kategoriju?')) return;
+  const cat = getCats().find(c => c.id === catId); // find BEFORE removing
   customCats = customCats.filter(c => c.id !== catId);
   localStorage.setItem(CAT_KEY, JSON.stringify(customCats));
-  const cat = getCats().find(c => c.id === catId);
   if (cat) {
     const extra = ST[`${catId}::_extra`] || [];
     const deleted = ST[`${catId}::_deleted`] || [];
