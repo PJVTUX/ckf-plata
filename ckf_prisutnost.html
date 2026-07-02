@@ -527,7 +527,7 @@ function generateQR(url, canvas) {
 const CFG_KEY = "ckf_pris_cfg_v2";
 const EMP_KEY = "ckf_pris_emp_v2";
 
-let scriptUrl = "";
+let scriptUrl = "https://script.google.com/macros/s/AKfycbzck1f4s5tq6NcjxMiWCucGW-rzmPxZZM4osvgd3TVfHCld-zDM7EOkrY3EI2OhAdKl/exec";
 let qrSecret  = "";
 let adminPin  = "1234";
 let employees = [];   // [{name, position, color}]
@@ -544,17 +544,11 @@ const COLORS = ["av0","av1","av2","av3","av4","av5","av6","av7","av8"];
 function loadData() {
   try {
     const c = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
-    scriptUrl = c.url || "";
+    // scriptUrl is hardcoded — only load admin PIN and QR secret from storage
     adminPin  = c.pin || "1234";
     qrSecret  = c.qr  || "";
   } catch {}
-  // Fallback: try hub config for attendance URL
-  if (!scriptUrl) {
-    try {
-      const hc = JSON.parse(localStorage.getItem('ckf_hub_cfg_v1')) || {};
-      scriptUrl = hc.url || "";
-    } catch {}
-  }
+  // Note: scriptUrl is hardcoded at the top — no dynamic loading needed
   try { employees = JSON.parse(localStorage.getItem(EMP_KEY)) || []; } catch {}
   renderCheckinList();
 }
@@ -1025,12 +1019,15 @@ async function psCheckin(type, localRec) {
     if (empPin) {
       var hoursRounded = Math.round(hoursDecimal * 2) / 2;
       var dayNum = now.getDate();
+      // Shift: P = morning (arrival before 14:00), D = afternoon (14:00 or later)
+      var arrHour = rec ? new Date(rec.ts).getHours() : now.getHours();
+      var smena   = arrHour < 14 ? 'P' : 'D';
       var saveUrl = plataUrl
         + '?action=save'
         + '&pin='    + encodeURIComponent(empPin)
         + '&target=' + encodeURIComponent(name)
         + '&day='    + dayNum
-        + '&smena='  + encodeURIComponent('')
+        + '&smena='  + encodeURIComponent(smena)
         + '&hours='  + encodeURIComponent(hoursRounded)
         + '&upl='    + encodeURIComponent('')
         + '&ts='     + Date.now();

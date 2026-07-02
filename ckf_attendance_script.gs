@@ -34,6 +34,12 @@ function doGet(e) {
 
 // ─── HANDLERS ────────────────────────────────────────────────────────────────
 
+function getShift(date) {
+  // P = first shift (arrived before 14:00), D = second shift (14:00 or later)
+  const hour = parseInt(Utilities.formatDate(date, "Europe/Belgrade", "HH"), 10);
+  return hour < 14 ? "P" : "D";
+}
+
 function handleArrive(data) {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getOrCreateSheet(ss, SHEET_NAME);
@@ -44,6 +50,8 @@ function handleArrive(data) {
     return jsonResp({ ok: true, status: "already_present" });
   }
 
+  const smena = getShift(now);
+
   sheet.appendRow([
     now,                        // A: Timestamp
     data.employee,              // B: Employee name
@@ -53,10 +61,11 @@ function handleArrive(data) {
     "",                         // F: Departure time
     "",                         // G: Hours worked
     data.mac || "",             // H: MAC address
-    "auto"                      // I: Source
+    "auto",                     // I: Source
+    smena                       // J: Shift (P = morning, D = afternoon)
   ]);
 
-  return jsonResp({ ok: true, status: "arrived", employee: data.employee, time: Utilities.formatDate(now, "Europe/Belgrade", "HH:mm") });
+  return jsonResp({ ok: true, status: "arrived", employee: data.employee, time: Utilities.formatDate(now, "Europe/Belgrade", "HH:mm"), smena: smena });
 }
 
 function handleLeave(data) {
@@ -102,9 +111,10 @@ function handleManual(data) {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getOrCreateSheet(ss, SHEET_NAME);
   const dt    = new Date(data.date + " " + data.time);
+  const smena = data.type === "arrive" ? getShift(dt) : "";
 
   sheet.appendRow([dt, data.employee, data.type === "arrive" ? "DOLAZAK" : "ODLAZAK",
-    data.time, data.date, "", "", "", "manual"]);
+    data.time, data.date, "", "", "", "manual", smena]);
 
   return jsonResp({ ok: true, status: "manual_added" });
 }
@@ -303,8 +313,8 @@ function getOrCreateSheet(ss, name) {
   if (!sheet) {
     sheet = ss.insertSheet(name);
     if (name === SHEET_NAME) {
-      sheet.appendRow(["Timestamp", "Zaposleni", "Dogadjaj", "Vreme", "Datum", "Odlazak", "Sati", "MAC", "Izvor"]);
-      sheet.getRange(1, 1, 1, 9).setFontWeight("bold");
+      sheet.appendRow(["Timestamp", "Zaposleni", "Dogadjaj", "Vreme", "Datum", "Odlazak", "Sati", "MAC", "Izvor", "Smena"]);
+      sheet.getRange(1, 1, 1, 10).setFontWeight("bold");
     }
     if (name === SHEET_EMP) {
       sheet.appendRow(["Ime", "MAC adresa", "Pozicija", "Registrovan"]);
