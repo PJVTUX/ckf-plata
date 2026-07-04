@@ -887,4 +887,196 @@ let exportPendingOnly = true;
 function showExport() {
   exportPendingOnly = true;
   document.getElementById("exp-btn-pending").classList.add("active");
- 
+  document.getElementById("exp-btn-all").classList.remove("active");
+  renderExportText();
+  document.getElementById("share-btn").style.display = navigator.share ? "flex" : "none";
+  showModal("modal-export");
+}
+function switchExport(pendingOnly) {
+  exportPendingOnly = pendingOnly;
+  document.getElementById("exp-btn-pending").classList.toggle("active", pendingOnly);
+  document.getElementById("exp-btn-all").classList.toggle("active", !pendingOnly);
+  renderExportText();
+}
+function buildExportText(pendingOnly) {
+  const cats  = getCats();
+  const today = new Date().toLocaleDateString("sr-RS",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const hdr   = pendingOnly ? "⏳ PRIPREMA — PREOSTALO — " + today : "📋 PRIPREMA — SVE — " + today;
+  let lines = [hdr, ""], total = 0;
+  cats.forEach(cat => {
+    const extra = ST[cat.id + "::_extra"] || [];
+    const all   = [...cat.items, ...extra];
+    let items = pendingOnly ? all.filter(i => !ST[gk(cat.id,i,"done")]) : all;
+    if (items.length === 0) return;
+    lines.push(cat.icon + " " + cat.name.toUpperCase() + ":");
+    items.forEach(item => {
+      const urgent = ST[gk(cat.id,item,"urgent")];
+      const note   = ST[gk(cat.id,item,"note")];
+      const done   = ST[gk(cat.id,item,"done")];
+      let line = "  " + (urgent ? "🔴 " : "  ") + item;
+      if (note) line += " — " + note;
+      if (!pendingOnly && done) line += " ✓";
+      lines.push(line); total++;
+    });
+    lines.push("");
+  });
+  if (total === 0) return null;
+  lines.push("─────────────────────");
+  lines.push("Ukupno: " + total + " zadataka");
+  return lines.join("\n");
+}
+function renderExportText() {
+  const box = document.getElementById("export-text-box");
+  const text = buildExportText(exportPendingOnly);
+  if (text) { box.innerHTML = ""; box.textContent = text; }
+  else box.innerHTML = '<div class="export-empty">' + (exportPendingOnly ? "Svi zadaci su obavljeni!" : "Lista je prazna") + '</div>';
+}
+function copyExport() {
+  const text = buildExportText(exportPendingOnly);
+  if (!text) return;
+  const btn = document.getElementById("copy-btn");
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "✓ Kopirano!"; btn.classList.add("copied");
+    setTimeout(() => { btn.innerHTML = "📋 Kopiraj"; btn.classList.remove("copied"); }, 2000);
+  }).catch(() => {
+    const ta = document.createElement("textarea"); ta.value = text;
+    ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    btn.textContent = "✓ Kopirano!"; btn.classList.add("copied");
+    setTimeout(() => { btn.innerHTML = "📋 Kopiraj"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+function shareExport() {
+  const text = buildExportText(exportPendingOnly);
+  if (!text || !navigator.share) return;
+  navigator.share({ title:"CKF Priprema", text });
+}
+
+// ─── DRAG & DROP ─────────────────────────────────────────────────────────────
+let dragEl = null;
+function initDragDrop(catId) {
+  const wrap = document.getElementById("iw-" + catId);
+  if (!wrap) return;
+  const items = wrap.querySelectorAll(".item[draggable='true']");
+  items.forEach(el => {
+    el.addEventListener("dragstart", e => { dragEl = el; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+    el.addEventListener("dragend",   e => { el.classList.remove("dragging"); wrap.querySelectorAll(".item").forEach(i => i.classList.remove("drag-over")); saveOrder(catId, wrap); });
+    el.addEventListener("dragover",  e => { e.preventDefault(); const after = getDragAfter(wrap, e.clientY); wrap.querySelectorAll(".item").forEach(i=>i.classList.remove("drag-over")); if (after) after.classList.add("drag-over"); });
+    el.addEventListener("drop",      e => { e.preventDefault(); const after = getDragAfter(wrap, e.clientY); if (after) wrap.insertBefore(dragEl, after); else wrap.appendChild(dragEl); });
+  });
+  let touchDragEl=null, touchClone=null, touchCatId=null, touchOffX=0, touchOffY=0;
+  items.forEach(el => {
+    const handle = el.querySelector(".drag-handle");
+    if (!handle) return;
+    handle.addEventListener("touchstart", e => {
+      touchDragEl=el; touchCatId=catId;
+      const r=el.getBoundingClientRect(), t=e.touches[0];
+      touchOffX=t.clientX-r.left; touchOffY=t.clientY-r.top;
+      touchClone=el.cloneNode(true);
+      Object.assign(touchClone.style,{position:"fixed",width:r.width+"px",opacity:"0.85",pointerEvents:"none",zIndex:"999",borderRadius:"8px",boxShadow:"0 4px 16px rgba(0,0,0,.25)"});
+      document.body.appendChild(touchClone);
+      el.classList.add("dragging");
+    }, {passive:true});
+    handle.addEventListener("touchmove", e => {
+      if (!touchDragEl||!touchClone) return;
+      e.preventDefault();
+      const t=e.touches[0];
+      touchClone.style.left=(t.clientX-touchOffX)+"px";
+      touchClone.style.top=(t.clientY-touchOffY)+"px";
+      const wrap2=document.getElementById("iw-"+touchCatId);
+      if (!wrap2) return;
+      const after=getDragAfter(wrap2,t.clientY);
+      wrap2.querySelectorAll(".item").forEach(i=>i.classList.remove("drag-over"));
+      if (after) after.classList.add("drag-over");
+    }, {passive:false});
+    handle.addEventListener("touchend", e => {
+      if (!touchDragEl||!touchClone) return;
+      const t=e.changedTouches[0];
+      const wrap2=document.getElementById("iw-"+touchCatId);
+      if (wrap2) {
+        const after=getDragAfter(wrap2,t.clientY);
+        if (after) wrap2.insertBefore(touchDragEl,after); else wrap2.appendChild(touchDragEl);
+        wrap2.querySelectorAll(".item").forEach(i=>i.classList.remove("drag-over"));
+        saveOrder(touchCatId,wrap2);
+      }
+      touchDragEl.classList.remove("dragging");
+      touchClone.remove();
+      touchDragEl=touchClone=touchCatId=null;
+    }, {passive:true});
+  });
+}
+function getDragAfter(wrap, y) {
+  const items = [...wrap.querySelectorAll(".item:not(.dragging)")];
+  return items.reduce((closest, el) => {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height/2;
+    return offset < 0 && offset > closest.offset ? {offset, el} : closest;
+  }, {offset: Number.NEGATIVE_INFINITY}).el || null;
+}
+function saveOrder(catId, wrap) {
+  const els = wrap.querySelectorAll(".item[data-item]");
+  itemOrders[catId] = Array.from(els).map(el => el.dataset.item);
+  localStorage.setItem(ORD_KEY, JSON.stringify(itemOrders));
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadLocal();
+render();
+document.getElementById("cfg-url").value = customUrl;
+document.getElementById("cfg-pin").value = "";
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !isSyncing) pullFromServer();
+});
+
+pullFromServer().then(() => startAutoSync());
+</script>
+
+<!-- CKF SESSION BADGE -->
+<script>
+(function() {
+  const COLORS = ['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e',
+                  '#3949ab','#00acc1','#7cb342','#fb8c00','#d81b60'];
+  function getSession() {
+    try { return JSON.parse(localStorage.getItem('ckf_session') || 'null'); } catch { return null; }
+  }
+  function showBadge() {
+    const s = getSession();
+    if (!s || !s.name) return;
+    const badge = document.createElement('div');
+    badge.id = 'ckf-user-badge-app';
+    badge.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,80px);right:12px;' +
+      'z-index:500;background:rgba(28,28,30,.88);border:1.5px solid rgba(255,255,255,.18);' +
+      'border-radius:22px;padding:7px 12px 7px 8px;display:flex;align-items:center;gap:7px;' +
+      'backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.25);' +
+      'font-family:-apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;';
+    const av = document.createElement('div');
+    av.textContent = s.name.charAt(0).toUpperCase();
+    av.style.cssText = 'width:24px;height:24px;border-radius:50%;display:flex;align-items:center;' +
+      'justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;' +
+      'background:' + COLORS[(s.colorIdx || 0) % COLORS.length] + ';';
+    const nm = document.createElement('div');
+    nm.textContent = s.name;
+    nm.style.cssText = 'font-size:12px;font-weight:600;color:#fff;white-space:nowrap;' +
+      'max-width:100px;overflow:hidden;text-overflow:ellipsis;';
+    badge.appendChild(av);
+    badge.appendChild(nm);
+    badge.onclick = function() {
+      if (confirm('Promijeniti korisnika?\nBit ćete odlogovani.')) {
+        localStorage.removeItem('ckf_session');
+        sessionStorage.removeItem('ckf_session');
+        badge.remove();
+      }
+    };
+    document.body.appendChild(badge);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', showBadge);
+  } else {
+    showBadge();
+  }
+})();
+</script>
+
+</body>
+</html>
