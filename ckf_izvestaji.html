@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>CKF IZVEŠTAJI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#eee;min-height:100vh;overflow-x:hidden;text-transform:uppercase}
+
+/* ── LOGIN ─────────────────────────────────────────────────────── */
+#loginScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-logo{font-size:52px;margin-bottom:8px}
+.login-title{font-size:24px;font-weight:800;color:#e64;margin-bottom:4px}
+.login-sub{font-size:13px;color:#666;margin-bottom:36px}
+.pin-wrap{position:relative;margin-bottom:14px}
+.pin-input{background:#1e1e1e;border:2px solid #2a2a2a;border-radius:14px;color:#fff;
+  font-size:28px;text-align:center;letter-spacing:10px;padding:14px 24px;
+  width:220px;outline:none;transition:border-color .2s;text-transform:none}
+.pin-input:focus{border-color:#e64}
+.btn-login{background:#e64;color:#fff;border:none;border-radius:14px;font-size:16px;
+  font-weight:700;padding:15px 0;cursor:pointer;width:220px;transition:opacity .15s}
+.btn-login:active{opacity:.8}
+.login-err{color:#f77;font-size:13px;margin-top:10px;min-height:18px;text-align:center}
+
+/* ── TOP BAR ───────────────────────────────────────────────────── */
+#statsScreen{display:none;min-height:100vh}
+.top-bar{background:#1a1a1a;padding:14px 18px 12px;position:sticky;top:0;z-index:20;
+  border-bottom:1px solid #252525;display:flex;align-items:center;justify-content:space-between}
+.top-bar-left h1{font-size:17px;font-weight:800;color:#e64;line-height:1.2}
+.top-bar-left p{font-size:12px;color:#555;margin-top:2px}
+.btn-logout{background:none;border:1px solid #2a2a2a;border-radius:8px;color:#555;
+  font-size:12px;padding:6px 12px;cursor:pointer}
+.btn-logout:active{background:#1e1e1e}
+
+/* ── CONTENT ───────────────────────────────────────────────────── */
+.content{padding:14px}
+
+/* ── SUMMARY TILE ──────────────────────────────────────────────── */
+.sum-tile{border:1px solid #252525;border-radius:18px;overflow:hidden;margin-bottom:14px;display:flex;min-height:160px}
+.sum-left{flex:0 0 55%;border-right:1px solid #252525;display:flex;flex-direction:column}
+.sum-right{flex:1;display:flex;flex-direction:column}
+
+.sum-ch-row{flex:1;display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:1px solid #1e1e1e}
+.sum-ch-row:last-child{border-bottom:none}
+.sum-ch-lbl{font-size:11px;font-weight:700;letter-spacing:.5px}
+.sum-ch-val{font-size:14px;font-weight:800}
+
+.sr-glovo{background:#1e1205}.sr-glovo .sum-ch-lbl{color:#7a4518}.sr-glovo .sum-ch-val{color:#f97316}
+.sr-wolt{background:#050f18}.sr-wolt .sum-ch-lbl{color:#0f4060}.sr-wolt .sum-ch-val{color:#22d3ee}
+.sr-kartica{background:#110c1e}.sr-kartica .sum-ch-lbl{color:#4a3070}.sr-kartica .sum-ch-val{color:#a78bfa}
+.sr-kes{background:#0a1508}.sr-kes .sum-ch-lbl{color:#2a5020}.sr-kes .sum-ch-val{color:#4ade80}
+
+.sum-total-box{flex:2;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px 8px;background:#0f2010;border-bottom:1px solid #1a3a1a}
+.sum-total-lbl{font-size:10px;color:#4a8a4a;font-weight:700;letter-spacing:1px;margin-bottom:3px}
+.sum-total-val{font-size:24px;font-weight:900;color:#4de860;line-height:1}
+
+.sum-stat-row{flex:1;display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-top:1px solid #1a1a1a}
+.sum-stat-lbl{font-size:10px;color:#555;font-weight:700;letter-spacing:.5px}
+.sum-stat-val{font-size:13px;font-weight:800;color:#c4b5fd}
+
+/* ── CALENDAR ──────────────────────────────────────────────────── */
+.section-title{font-size:11px;color:#555;font-weight:700;letter-spacing:1px;margin-bottom:10px}
+.cal-wrap{margin-bottom:14px}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+.cal-dow span{text-align:center;font-size:10px;font-weight:700;color:#444;padding:4px 0}
+.cal-dow span:first-child{color:#664} /* PON = day off */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+
+.cal-cell{
+  border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  aspect-ratio:1;position:relative;overflow:hidden;background:#181818;
+}
+.cal-cell.empty{background:transparent}
+.cal-cell.dayoff{background:#1a1512}
+.cal-cell.dayoff .day-num{color:#443}
+.cal-cell.has-data{
+  background:hsl(128,50%,calc(12% + var(--pct,0) * 20%));
+  border:1px solid hsl(128,40%,calc(18% + var(--pct,0) * 20%));
+  cursor:pointer;
+}
+.cal-cell.dayoff.has-data{background:hsl(128,45%,calc(11% + var(--pct,0) * 20%))}
+.cal-cell.today{outline:2px solid #e64;outline-offset:-2px}
+.cal-cell.today .day-num{color:#e64!important}
+.cal-cell.future.has-data{opacity:.4}
+.cal-cell.has-data:active{opacity:.7}
+
+.day-num{font-size:10px;font-weight:700;color:#444;position:absolute;top:4px;left:6px;line-height:1}
+.cal-cell.has-data .day-num{color:rgba(255,255,255,.55)}
+.cal-cell.dayoff.has-data .day-num{color:rgba(255,220,150,.5)}
+.day-val{font-size:11px;font-weight:800;color:#fff;margin-top:4px;text-align:center;line-height:1}
+.day-val-sm{font-size:9px}
+
+/* ── MODAL ─────────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#1a1a1a;border-radius:20px;overflow:hidden;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-head{padding:14px 18px;background:#222;display:flex;justify-content:space-between;align-items:center}
+.modal-head-title{font-size:14px;font-weight:800;color:#fff;letter-spacing:.5px}
+.modal-close{background:none;border:none;color:#666;font-size:22px;cursor:pointer;padding:0 4px;line-height:1}
+.modal-close:active{color:#fff}
+
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:11px 18px}
+.modal-row-lbl{font-size:12px;font-weight:700;letter-spacing:.5px}
+.modal-row-val{font-size:16px;font-weight:800}
+.modal-sep{height:1px;background:#252525}
+
+.mr-glovo{background:#1e1205}.mr-glovo .modal-row-lbl{color:#7a4518}.mr-glovo .modal-row-val{color:#f97316}
+.mr-wolt{background:#050f18}.mr-wolt .modal-row-lbl{color:#0f4060}.mr-wolt .modal-row-val{color:#22d3ee}
+.mr-kartica{background:#110c1e}.mr-kartica .modal-row-lbl{color:#4a3070}.mr-kartica .modal-row-val{color:#a78bfa}
+.mr-kes{background:#0a1508}.mr-kes .modal-row-lbl{color:#2a5020}.mr-kes .modal-row-val{color:#4ade80}
+.mr-ukupno{background:#0f2010;border-top:2px solid #1a3a1a}.mr-ukupno .modal-row-lbl{color:#4a8a4a}.mr-ukupno .modal-row-val{color:#4de860;font-size:20px}
+.mr-porud{background:#100e1a}.mr-porud .modal-row-lbl{color:#504870}.mr-porud .modal-row-val{color:#c4b5fd}
+.mr-racun{background:#100e1a;border-top:1px solid #1a1828}.mr-racun .modal-row-lbl{color:#504870}.mr-racun .modal-row-val{color:#c4b5fd}
+.modal-btn-close{width:100%;background:#222;border:none;color:#777;font-size:13px;font-weight:700;padding:14px;cursor:pointer;letter-spacing:1px}
+.modal-btn-close:active{background:#2a2a2a;color:#fff}
+
+/* ── SPINNER / ERR ─────────────────────────────────────────────── */
+.spinner{width:32px;height:32px;border:3px solid #252525;border-top-color:#e64;
+  border-radius:50%;animation:spin .7s linear infinite;margin:48px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-msg{text-align:center;color:#f66;padding:32px 16px;font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- ═════════════════════ LOGIN ═════════════════════ -->
+<div id="loginScreen">
+  <div class="login-logo">📊</div>
+  <div class="login-title">CKF IZVEŠTAJI</div>
+  <div class="login-sub">SAMO ZA ADMINISTRATORE I VLASNIKE</div>
+  <div class="pin-wrap">
+    <input id="pinInput" class="pin-input" type="password" inputmode="numeric"
+           maxlength="6" placeholder="••••" autocomplete="off">
+  </div>
+  <button class="btn-login" onclick="doLogin()">PRIJAVA</button>
+  <div class="login-err" id="loginErr"></div>
+</div>
+
+<!-- ═════════════════════ STATS ═════════════════════ -->
+<div id="statsScreen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <h1 id="pageTitle">IZVEŠTAJI</h1>
+      <p id="pageUser"></p>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">ODJAVA</button>
+  </div>
+  <div class="content" id="statsContent">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<!-- ═════════════════════ MODAL ═════════════════════ -->
+<div class="modal-overlay" id="dayModal" onclick="handleOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-head-title" id="modalTitle">DAN 1</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+    <button class="modal-btn-close" onclick="closeModal()">ZATVORI</button>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznMuXVkU2RfNo34296i5XfV0Kkp9oMlEIskUKgCd3sq66trfNzxgn7VyrVAuWnXr8f/exec";
+
+const MONTH_FULL = {
+  "JAN":"JANUAR","FEB":"FEBRUAR","MAR":"MART","APR":"APRIL","MAJ":"MAJ",
+  "JUN":"JUNI","JUL":"JULI","AVG":"AVGUST","SEP":"SEPTEMBAR",
+  "OKT":"OKTOBAR","NOV":"NOVEMBAR","DEC":"DECEMBAR",
+  "JANUAR":"JANUAR","FEBRUAR":"FEBRUAR","MART":"MART","APRIL":"APRIL",
+  "JUNI":"JUNI","JULI":"JULI","AVGUST":"AVGUST","SEPTEMBAR":"SEPTEMBAR",
+  "OKTOBAR":"OKTOBAR","NOVEMBAR":"NOVEMBAR","DECEMBAR":"DECEMBAR"
+};
+const MONTH_IDX = {
+  "JAN":0,"FEB":1,"MAR":2,"APR":3,"MAJ":4,"JUN":5,"JUL":6,"AVG":7,"SEP":8,"OKT":9,"NOV":10,"DEC":11,
+  "JANUAR":0,"FEBRUAR":1,"MART":2,"APRIL":3,"JUNI":5,"JULI":6,"AVGUST":7,"SEPTEMBAR":8,
+  "OKTOBAR":9,"NOVEMBAR":10,"DECEMBAR":11
+};
+const DOW_NAMES = ["PON","UTO","SRE","ČET","PET","SUB","NED"];
+
+let g_pin  = "";
+let g_name = "";
+let g_pos  = "";
+let g_data = null;
+
+// ── Init ──────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const sess = JSON.parse(localStorage.getItem("ckf_session") || "null");
+    if (sess && sess.pin && (sess.position === "administrator" || sess.position === "owner")) {
+      g_pin  = sess.pin;
+      g_name = sess.name || "";
+      g_pos  = sess.position;
+      showStats();
+      return;
+    }
+  } catch(e) {}
+  showLogin();
+});
+
+document.getElementById("pinInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+// ── Login ─────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("statsScreen").style.display  = "none";
+  setTimeout(() => document.getElementById("pinInput").focus(), 100);
+}
+
+function doLogin() {
+  const pin = document.getElementById("pinInput").value.trim();
+  if (!pin) return;
+  setLoginErr("PROVJERA...");
+  g_pin = pin;
+  loadStats();
+}
+
+function setLoginErr(msg) {
+  document.getElementById("loginErr").textContent = msg;
+}
+
+// ── Show stats ─────────────────────────────────────────────────────────
+function showStats() {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("statsScreen").style.display  = "block";
+  document.getElementById("statsContent").innerHTML = '<div class="spinner"></div>';
+  loadStats();
+}
+
+function loadStats() {
+  fetch(`${SCRIPT_URL}?action=stats&pin=${encodeURIComponent(g_pin)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        if (data.error === "Pristup odbijen") {
+          setLoginErr("PRISTUP ODBIJEN — SAMO ADMINISTRATOR ILI VLASNIK");
+          showLogin();
+        } else if (data.error.includes("PIN")) {
+          setLoginErr(data.error.toUpperCase());
+          showLogin();
+        } else {
+          document.getElementById("statsContent").innerHTML =
+            `<div class="err-msg">${data.error}</div>`;
+          document.getElementById("loginScreen").style.display = "none";
+          document.getElementById("statsScreen").style.display  = "block";
+        }
+        return;
+      }
+      if (data.me) {
+        g_name = data.me.name || g_name;
+        g_pos  = data.me.position || g_pos;
+        try {
+          localStorage.setItem("ckf_session",
+            JSON.stringify({ pin: g_pin, name: g_name, position: g_pos }));
+        } catch(e) {}
+      }
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("statsScreen").style.display  = "block";
+      g_data = data;
+      render(data);
+    })
+    .catch(() => {
+      const isOnStats = document.getElementById("statsScreen").style.display !== "none";
+      if (isOnStats) {
+        document.getElementById("statsContent").innerHTML =
+          '<div class="err-msg">GREŠKA VEZE SA SERVEROM</div>';
+      } else {
+        setLoginErr("GREŠKA VEZE");
+      }
+    });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────
+function render(data) {
+  const monthKey  = (data.month || "").toUpperCase().trim();
+  const monthName = MONTH_FULL[monthKey] || monthKey;
+  const monthIdx  = MONTH_IDX[monthKey];
+  const year      = new Date().getFullYear();
+  const days      = data.days || [];
+  const ch        = data.channels || {};
+  const porud     = data.porudzbina || [];
+
+  document.getElementById("pageTitle").textContent = `${monthName} ${year}`;
+  document.getElementById("pageUser").textContent  = g_name ? `PRIJAVLJENI: ${g_name}` : "";
+
+  const sum = arr => (arr || []).reduce((s, v) => s + Math.round(v || 0), 0);
+
+  const totalUkupno = sum(days);
+  const totalPorud  = sum(porud);
+  const totalRacun  = totalPorud > 0 ? Math.round(totalUkupno / totalPorud) : 0;
+
+  const glSum = sum(ch.glovo);
+  const wlSum = sum(ch.wolt);
+  const krSum = sum(ch.kartica);
+  const ksSum = sum(ch.kes);
+
+  let html = "";
+
+  // ── Summary tile (top)
+  html += `
+  <div class="sum-tile">
+    <div class="sum-left">
+      <div class="sum-ch-row sr-glovo">
+        <span class="sum-ch-lbl">GLOVO</span>
+        <span class="sum-ch-val">${fmtNum(glSum)}</span>
+      </div>
+      <div class="sum-ch-row sr-wolt">
+        <span class="sum-ch-lbl">WOLT</span>
+        <span class="sum-ch-val">${fmtNum(wlSum)}</span>
+      </div>
+      <div class="sum-ch-row sr-kartica">
+        <span class="sum-ch-lbl">KARTICA</span>
+        <span class="sum-ch-val">${fmtNum(krSum)}</span>
+      </div>
+      <div class="sum-ch-row sr-kes">
+        <span class="sum-ch-lbl">KES</span>
+        <span class="sum-ch-val">${fmtNum(ksSum)}</span>
+      </div>
+    </div>
+    <div class="sum-right">
+      <div class="sum-total-box">
+        <div class="sum-total-lbl">UKUPNO</div>
+        <div class="sum-total-val">${fmtNum(totalUkupno)}</div>
+      </div>
+      <div class="sum-stat-row">
+        <span class="sum-stat-lbl">PORUDZBINA</span>
+        <span class="sum-stat-val">${fmtNum(totalPorud)}</span>
+      </div>
+      <div class="sum-stat-row">
+        <span class="sum-stat-lbl">RACUN</span>
+        <span class="sum-stat-val">${fmtNum(totalRacun)}</span>
+      </div>
+    </div>
+  </div>`;
+
+  // ── Calendar
+  if (monthIdx !== undefined) {
+    html += `<div class="cal-wrap"><div class="section-title">PRIHOD PO DANIMA</div>`;
+    html += buildCalendar(days, year, monthIdx);
+    html += `</div>`;
+  }
+
+  document.getElementById("statsContent").innerHTML = html;
+}
+
+// ── Calendar builder ──────────────────────────────────────────────────
+function buildCalendar(days, year, monthIdx) {
+  const today      = new Date();
+  const isCurMonth = today.getFullYear() === year && today.getMonth() === monthIdx;
+  const todayDay   = today.getDate();
+
+  const d1     = new Date(year, monthIdx, 1).getDay();
+  const offset = d1 === 0 ? 6 : d1 - 1; // Mon-first (0=MON)
+  const numDays= new Date(year, monthIdx + 1, 0).getDate();
+
+  const nonZero = days.filter(v => v > 0);
+  const maxVal  = nonZero.length ? Math.max(...nonZero) : 1;
+
+  let html = '<div class="cal-dow">';
+  for (const d of DOW_NAMES) html += `<span>${d}</span>`;
+  html += '</div><div class="cal-grid">';
+
+  for (let i = 0; i < offset; i++) html += '<div class="cal-cell empty"></div>';
+
+  for (let d = 1; d <= numDays; d++) {
+    const val      = Math.round(days[d-1] || 0);
+    const isFuture = isCurMonth && d > todayDay;
+    const isToday  = isCurMonth && d === todayDay;
+    const cellPos  = (offset + d - 1) % 7; // 0=MON … 6=SUN
+    const isMon    = cellPos === 0; // only Monday = day off
+
+    let cls = "cal-cell";
+    if (isMon)   cls += " dayoff";
+    if (val > 0) cls += " has-data";
+    if (isToday) cls += " today";
+    if (isFuture && val > 0) cls += " future";
+
+    const pct    = val > 0 ? (val / maxVal) : 0;
+    const style  = `--pct:${pct.toFixed(3)}`;
+    const valStr = val > 0 ? fmtK(val) : "";
+    const valCls = val >= 10000 ? "day-val day-val-sm" : "day-val";
+    const click  = val > 0 ? ` onclick="showDay(${d})"` : "";
+
+    html += `<div class="${cls}" style="${style}"${click}>
+      <span class="day-num">${d}</span>
+      ${val > 0 ? `<span class="${valCls}">${valStr}</span>` : ""}
+    </div>`;
+  }
+
+  const trail = (7 - ((offset + numDays) % 7)) % 7;
+  for (let i = 0; i < trail; i++) html += '<div class="cal-cell empty"></div>';
+
+  html += '</div>';
+  return html;
+}
+
+// ── Day modal ─────────────────────────────────────────────────────────
+function showDay(dayNum) {
+  if (!g_data) return;
+  const idx  = dayNum - 1;
+  const ch   = g_data.channels || {};
+  const days = g_data.days || [];
+  const por  = g_data.porudzbina || [];
+
+  const gl = Math.round((ch.glovo   || [])[idx] || 0);
+  const wl = Math.round((ch.wolt    || [])[idx] || 0);
+  const kr = Math.round((ch.kartica || [])[idx] || 0);
+  const ks = Math.round((ch.kes     || [])[idx] || 0);
+  const uk = Math.round((days       || [])[idx] || 0);
+  const pr = Math.round((por        || [])[idx] || 0);
+  const rc = pr > 0 ? Math.round(uk / pr) : 0;
+
+  // Day-of-week name
+  const monthKey = (g_data.month || "").toUpperCase().trim();
+  const monthIdx = MONTH_IDX[monthKey];
+  let dowStr = "";
+  if (monthIdx !== undefined) {
+    const d1     = new Date(new Date().getFullYear(), monthIdx, 1).getDay();
+    const offset = d1 === 0 ? 6 : d1 - 1;
+    const cellPos = (offset + dayNum - 1) % 7;
+    dowStr = " – " + DOW_NAMES[cellPos];
+  }
+
+  document.getElementById("modalTitle").textContent = `DAN ${dayNum}${dowStr}`;
+  document.getElementById("modalBody").innerHTML = `
+    <div class="modal-row mr-glovo">
+      <span class="modal-row-lbl">GLOVO</span>
+      <span class="modal-row-val">${fmtNum(gl)}</span>
+    </div>
+    <div class="modal-row mr-wolt">
+      <span class="modal-row-lbl">WOLT</span>
+      <span class="modal-row-val">${fmtNum(wl)}</span>
+    </div>
+    <div class="modal-row mr-kartica">
+      <span class="modal-row-lbl">KARTICA</span>
+      <span class="modal-row-val">${fmtNum(kr)}</span>
+    </div>
+    <div class="modal-row mr-kes">
+      <span class="modal-row-lbl">KES</span>
+      <span class="modal-row-val">${fmtNum(ks)}</span>
+    </div>
+    <div class="modal-sep"></div>
+    <div class="modal-row mr-ukupno">
+      <span class="modal-row-lbl">UKUPNO</span>
+      <span class="modal-row-val">${fmtNum(uk)}</span>
+    </div>
+    <div class="modal-row mr-porud">
+      <span class="modal-row-lbl">PORUDZBINA</span>
+      <span class="modal-row-val">${fmtNum(pr)}</span>
+    </div>
+    <div class="modal-row mr-racun">
+      <span class="modal-row-lbl">RACUN</span>
+      <span class="modal-row-val">${fmtNum(rc)}</span>
+    </div>
+  `;
+  document.getElementById("dayModal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("dayModal").classList.remove("open");
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById("dayModal")) closeModal();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function fmtNum(n) {
+  return Math.round(n || 0).toString();
+}
+
+function fmtK(n) {
+  // Full integer for calendar cells — no K abbreviation
+  n = Math.round(n || 0);
+  return n ? String(n) : "";
+}
+
+function doLogout() {
+  try { localStorage.removeItem("ckf_session"); } catch(e) {}
+  g_pin = ""; g_name = ""; g_pos = ""; g_data = null;
+  document.getElementById("pinInput").value = "";
+  document.getElementById("loginErr").textContent = "";
+  showLogin();
+}
+</script>
+</body>
+</html>
