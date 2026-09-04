@@ -521,7 +521,7 @@ function buildCalendar(days, year, monthIdx) {
     const pct    = val > 0 ? (val / maxVal) : 0;
     const style  = `--pct:${pct.toFixed(3)}`;
     const valStr = val > 0 ? fmtK(val) : "";
-    const fsize  = valStr.length <= 3 ? 15 : valStr.length === 4 ? 13 : valStr.length === 5 ? 12 : valStr.length === 6 ? 10 : 8;
+    const fsize  = 15;
     const click  = val > 0 ? ` onclick="showDay(${d})"` : "";
 
     html += `<div class="${cls}" style="${style}"${click}>
