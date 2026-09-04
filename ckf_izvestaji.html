@@ -143,12 +143,18 @@ body.dark-theme .theme-btn{background:rgba(255,255,255,.1);border-color:#333;col
 .sr-wolt{background:#f0f8ff}.sr-wolt .sum-ch-lbl{color:#0a5080}.sr-wolt .sum-ch-val{color:#0ea5e9}
 .sr-kartica{background:#f5f0ff}.sr-kartica .sum-ch-lbl{color:#5a30a0}.sr-kartica .sum-ch-val{color:#8b5cf6}
 .sr-kes{background:#f0fff4}.sr-kes .sum-ch-lbl{color:#1a6030}.sr-kes .sum-ch-val{color:#16a34a}
+.sr-nabavka{background:#fdf5e6}.sr-nabavka .sum-ch-lbl{color:#7a5a20}.sr-nabavka .sum-ch-val{color:#b45309}
 
 /* channel rows — dark override */
 body.dark-theme .sr-glovo{background:#1e1205}body.dark-theme .sr-glovo .sum-ch-lbl{color:#7a4518}body.dark-theme .sr-glovo .sum-ch-val{color:#f97316}
 body.dark-theme .sr-wolt{background:#050f18}body.dark-theme .sr-wolt .sum-ch-lbl{color:#0f4060}body.dark-theme .sr-wolt .sum-ch-val{color:#22d3ee}
 body.dark-theme .sr-kartica{background:#110c1e}body.dark-theme .sr-kartica .sum-ch-lbl{color:#4a3070}body.dark-theme .sr-kartica .sum-ch-val{color:#a78bfa}
 body.dark-theme .sr-kes{background:#0a1508}body.dark-theme .sr-kes .sum-ch-lbl{color:#2a5020}body.dark-theme .sr-kes .sum-ch-val{color:#4ade80}
+body.dark-theme .sr-nabavka{background:#1a1205}body.dark-theme .sr-nabavka .sum-ch-lbl{color:#6a4a18}body.dark-theme .sr-nabavka .sum-ch-val{color:#d97706}
+
+/* marza color */
+.sum-stat-val-marza{color:#db2777}
+body.dark-theme .sum-stat-val-marza{color:#f472b6}
 
 .sum-total-box{flex:2;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px 8px;background:var(--sr-totalbg);border-bottom:1px solid var(--sr-statbord)}
 .sum-total-lbl{font-size:10px;color:var(--sr-totallbl);font-weight:700;letter-spacing:1px;margin-bottom:3px}
@@ -432,10 +438,12 @@ function render(data) {
   const totalPorud  = sum(porud);
   const totalRacun  = totalPorud > 0 ? Math.round(totalUkupno / totalPorud) : 0;
 
-  const glSum = sum(ch.glovo);
-  const wlSum = sum(ch.wolt);
-  const krSum = sum(ch.kartica);
-  const ksSum = sum(ch.kes);
+  const glSum  = sum(ch.glovo);
+  const wlSum  = sum(ch.wolt);
+  const krSum  = sum(ch.kartica);
+  const ksSum  = sum(ch.kes);
+  const nabSum = sum(data.nabavka);
+  const marza  = totalUkupno - nabSum;
 
   let html = "";
 
@@ -459,6 +467,11 @@ function render(data) {
         <span class="sum-ch-lbl">KES</span>
         <span class="sum-ch-val">${fmtNum(ksSum)}</span>
       </div>
+      ${nabSum > 0 ? `
+      <div class="sum-ch-row sr-nabavka">
+        <span class="sum-ch-lbl">NABAVKA</span>
+        <span class="sum-ch-val">${fmtNum(nabSum)}</span>
+      </div>` : ""}
     </div>
     <div class="sum-right">
       <div class="sum-total-box">
@@ -473,6 +486,11 @@ function render(data) {
         <span class="sum-stat-lbl">RACUN</span>
         <span class="sum-stat-val">${fmtNum(totalRacun)}</span>
       </div>
+      ${nabSum > 0 ? `
+      <div class="sum-stat-row">
+        <span class="sum-stat-lbl">MARZA</span>
+        <span class="sum-stat-val sum-stat-val-marza">${fmtNum(marza)}</span>
+      </div>` : ""}
     </div>
   </div>`;
 
