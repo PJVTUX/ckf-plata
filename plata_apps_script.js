@@ -88,9 +88,10 @@ function doGet(e) {
     const odrCol    = C("ODRADJENO", "ODRAĐENO", 5);
     const zarCol    = C("ZARADJENO", "ZARAĐENO", 6);
     const uplCol    = C("UPLACENO",  "UPLAĆENO", 7);
-    const dugCol    = C("DUG",       null,       8);
-    const godCol    = col["GODISNJI"] !== undefined ? col["GODISNJI"] : null;
-    const posCol    = col["POSITION"] !== undefined ? col["POSITION"] : null;
+    const dugCol      = C("DUG",       null,       8);
+    const prenetoCol  = col["PRENETO"]  !== undefined ? col["PRENETO"]  : null;
+    const godCol      = col["GODISNJI"] !== undefined ? col["GODISNJI"] : null;
+    const posCol      = col["POSITION"] !== undefined ? col["POSITION"] : null;
 
     const myRow = data.find((r, i) => i > 0 && String(r[pinCol]).trim() === pin);
     if (!myRow) return jsonResponse({ error: "PIN nije pronađen" });
@@ -121,6 +122,7 @@ function doGet(e) {
         UPLACENO:  toNum(row[uplCol]),
         DUG:       toNum(row[dugCol]),
       };
+      if (prenetoCol !== null) rec.PRENETO = toNum(row[prenetoCol]);
       if (canSeeAll && godCol !== null) rec.GODISNJI = toNum(row[godCol]);
       records.push(rec);
     }

@@ -149,8 +149,10 @@ body.dark-theme .emp-rows { background:#1c1c28; }
 body.dark-theme .emp-row { border-color:#2a2a3a; }
 body.dark-theme .salary-row.zaradjeno,
 body.dark-theme .salary-row.dug { background:#1a1a2e; }
+body.dark-theme .salary-row.preneto .sr-val { color:#38bdf8; }
 body.dark-theme .emp-row.zaradjeno,
 body.dark-theme .emp-row.dug { background:#1a1a2e; }
+body.dark-theme .emp-row.preneto .er-val { color:#38bdf8; }
 body.dark-theme .sheet h3 { color:#f2f2f7; }
 body.dark-theme .footer-note { color:#555; }
 body.dark-theme .cal-emp-select { background:#2a2a3a; color:#f2f2f7; border-color:#3a3a5a; }
@@ -222,6 +224,7 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
 .salary-row.zaradjeno .sr-val { color:var(--blue); }
 .salary-row.dug       .sr-val { color:var(--accent); }
 .salary-row.dug.paid  .sr-val { color:var(--green); }
+.salary-row.preneto   .sr-val { color:#0ea5e9; }
 .salary-row.zaradjeno,
 .salary-row.dug {
   background:#f9f9fb;
@@ -295,6 +298,7 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
 .emp-row.zaradjeno .er-val { color:var(--blue); }
 .emp-row.dug       .er-val { color:var(--accent); }
 .emp-row.dug.paid  .er-val { color:var(--green); }
+.emp-row.preneto   .er-val { color:#0ea5e9; }
 .emp-row.godisnji  .er-val { color:var(--blue); }
 
 .summary-card .emp-card-header { background:linear-gradient(135deg,#b71c1c,#7f0000); }
@@ -762,6 +766,10 @@ function renderPeriodAdmin(period) {
           <span class="er-label">DUG</span>
           <span class="er-val">${fmt(Math.abs(dug))} €</span>
         </div>
+        ${(rec.PRENETO && rec.PRENETO > 0) ? `<div class="emp-row preneto">
+          <span class="er-label">PRENETO</span>
+          <span class="er-val">${fmt(rec.PRENETO)} €</span>
+        </div>` : ""}
         ${rec.GODISNJI ? `<div class="emp-row godisnji">
           <span class="er-label">GODISNJI</span>
           <span class="er-val">${fmt(rec.GODISNJI)} €</span>
@@ -847,6 +855,10 @@ function renderPeriodTab(period) {
           <span class="sr-label">DUG</span>
           <span class="sr-val">${fmt(Math.abs(dug))} €</span>
         </div>
+        ${(rec.PRENETO && rec.PRENETO > 0) ? `<div class="salary-row preneto">
+          <span class="sr-label">PRENETO</span>
+          <span class="sr-val">${fmt(rec.PRENETO)} €</span>
+        </div>` : ""}
       </div>
     </div>`;
 }
