@@ -44,7 +44,7 @@ function doGet(e) {
     }
 
     // ── Статистика прихода (RASPORED) ────────────────────────────────
-    if (action === "stats") {
+    if (action === "stats" || action === "archive") {
       if (!pin) return jsonResponse({ error: "PIN nije naveden" });
       const plSheet = ss.getSheetByName(SHEET_NAME);
       const plData  = plSheet.getDataRange().getValues();
@@ -61,6 +61,7 @@ function doGet(e) {
       if (sPos !== "administrator" && sPos !== "owner") {
         return jsonResponse({ error: "Pristup odbijen" });
       }
+      if (action === "archive") return getArchiveData(ss, sName, sPos);
       return getStatsData(ss, sName, sPos);
     }
 
@@ -430,6 +431,151 @@ function getStatsData(ss, myName, myPos) {
     nabavka:    getDayVals("nabavka"    in revRows ? revRows["nabavka"]    : -1),
     porudzbina: getDayVals("porudzbina" in revRows ? revRows["porudzbina"] : -1)
   });
+}
+
+// ── Архив выручки по месяцам (лист «Архив») ─────────────────────────
+// Каждый месяц — блок строк: kucan / GLOVO / WOLT / KARTICA / KES / UKUPNO,
+// ниже NABAVKA (если есть) и PORUDZBINA. Парсер привязывается к строке
+// «UKUPNO», остальные строки ищет по меткам в той же колонке, а колонки дней
+// определяет по строке с номерами дней 1..31 рядом с блоком. Поэтому разные
+// «поколения» вёрстки таблицы обрабатываются без ручной унификации.
+function normLbl(v) {
+  return String(v === null || v === undefined ? "" : v).trim().toUpperCase()
+    .replace(/Č|Ć/g, "C").replace(/Š/g, "S").replace(/Ž/g, "Z").replace(/Đ/g, "D");
+}
+
+function getArchiveData(ss, myName, myPos) {
+  var sheet = null, sheetNames = [];
+  ss.getSheets().forEach(function(s) {
+    sheetNames.push(s.getName());
+    var n = normLbl(s.getName());
+    if (!sheet && (n.indexOf("ARH") >= 0 || n.indexOf("ARCH") >= 0 || n.indexOf("АРХ") >= 0)) sheet = s;
+  });
+  if (!sheet) return jsonResponse({ error: "List Arhiva nije pronađen", sheets: sheetNames });
+
+  var data = sheet.getDataRange().getValues();
+  var year = new Date().getFullYear();
+
+  var MONTH_MAP = {
+    "JAN":0,"JANUAR":0,"FEB":1,"FEBRUAR":1,"MAR":2,"MART":2,"APR":3,"APRIL":3,
+    "MAJ":4,"JUN":5,"JUNI":5,"JUL":6,"JULI":6,"AVG":7,"AVGUST":7,
+    "SEP":8,"SEPT":8,"SEPTEMBAR":8,"OKT":9,"OKTOBAR":9,"NOV":10,"NOVEMBAR":10,"DEC":11,"DECEMBAR":11
+  };
+  var MONTH_ABBR = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AVG","SEP","OKT","NOV","DEC"];
+
+  var isNum = function(v) {
+    return typeof v === "number" || (v !== "" && v !== null && !isNaN(parseFloat(String(v).replace(",", "."))));
+  };
+
+  var found = [], diag = [], lastIdx = -1;
+
+  for (var r = 0; r < data.length; r++) {
+    var row = data[r];
+    var lc = -1;
+    for (var c = 0; c < Math.min(10, row.length); c++) {
+      if (normLbl(row[c]) === "UKUPNO") { lc = c; break; }
+    }
+    if (lc < 0) continue;
+
+    // Должны быть числа справа (иначе это не блок выручки)
+    var numCnt = 0;
+    for (var k = lc + 1; k < Math.min(row.length, lc + 35); k++) if (isNum(row[k])) numCnt++;
+    if (numCnt < 10) continue;
+
+    // 1) Строка с номерами дней (1..31) рядом с блоком
+    var hRow = -1, c1 = -1;
+    for (var dr = -9; dr <= 4; dr++) {
+      var rr = r + dr;
+      if (dr === 0 || rr < 0 || rr >= data.length) continue;
+      var hr = data[rr];
+      var start = -1;
+      for (var cc = lc + 1; cc < Math.min(hr.length, lc + 8); cc++) {
+        var hv = hr[cc];
+        if (hv !== "" && parseFloat(String(hv).replace(",", ".")) === 1 && !(typeof hv === "string" && hv.length > 2)) { start = cc; break; }
+      }
+      if (start < 0) continue;
+      var ints = 0;
+      for (var cj = start; cj < Math.min(hr.length, start + 31); cj++) {
+        var n = parseFloat(String(hr[cj]).replace(",", "."));
+        if (!isNaN(n) && n >= 1 && n <= 31 && n === Math.floor(n)) ints++;
+      }
+      if (ints < 20) continue;
+      if (hRow < 0 || Math.abs(dr) < Math.abs(hRow - r)) { hRow = rr; c1 = start; }
+    }
+    if (c1 < 0) c1 = lc + 1;
+
+    // 2) Месяц: метка рядом со строкой дней (или над блоком)
+    var idx = -1;
+    var searchRows = [];
+    if (hRow >= 0) { for (var s1 = hRow - 1; s1 <= hRow + 2; s1++) searchRows.push(s1); }
+    for (var s2 = r - 8; s2 < r; s2++) searchRows.push(s2);
+    for (var si = 0; si < searchRows.length && idx < 0; si++) {
+      var sr = searchRows[si];
+      if (sr < 0 || sr >= data.length) continue;
+      for (var sc = 0; sc <= Math.min(lc, data[sr].length - 1); sc++) {
+        var tok = normLbl(data[sr][sc]).split(/[\s\d]+/)[0];
+        if (tok && MONTH_MAP[tok] !== undefined) { idx = MONTH_MAP[tok]; break; }
+      }
+    }
+    if (idx < 0) idx = lastIdx + 1;   // запасной вариант — по порядку
+    if (idx > 11) continue;
+    lastIdx = idx;
+
+    var numDays = new Date(year, idx + 1, 0).getDate();
+    var dayVals = function(rowIdx) {
+      var out = [];
+      for (var d = 0; d < 31; d++) {
+        out.push(d < numDays && rowIdx >= 0 ? toNum(data[rowIdx][c1 + d]) : 0);
+      }
+      return out;
+    };
+
+    // 3) Каналы — строки выше UKUPNO (метки в той же колонке)
+    var rows = { glovo:-1, wolt:-1, kartica:-1, kes:-1, kucan_kes:-1 };
+    for (var up = r - 1; up >= Math.max(0, r - 9); up--) {
+      var lb = normLbl(data[up][lc]);
+      if (!lb) continue;
+      if (lb.indexOf("GLOVO") === 0 && rows.glovo < 0)       rows.glovo = up;
+      else if (lb.indexOf("WOLT") === 0 && rows.wolt < 0)    rows.wolt = up;
+      else if (lb.indexOf("KARTIC") === 0 && rows.kartica < 0) rows.kartica = up;
+      else if (lb === "KES" && rows.kes < 0)                 rows.kes = up;
+      else if (lb.indexOf("KUCAN") === 0 && rows.kucan_kes < 0) rows.kucan_kes = up;
+    }
+
+    // 4) NABAVKA и PORUDZBINA — ниже UKUPNO
+    var nabRow = -1, porRow = -1;
+    for (var dn = r + 1; dn <= Math.min(data.length - 1, r + 4); dn++) {
+      var lbn = normLbl(data[dn][lc]);
+      if (nabRow < 0 && lbn.indexOf("ABAV") >= 0) nabRow = dn;
+      for (var pc = 0; pc <= lc && porRow < 0; pc++) {
+        if (normLbl(data[dn][pc]).indexOf("PORUD") >= 0) porRow = dn;
+      }
+    }
+
+    var ukupno = dayVals(r);
+    found.push({
+      idx: idx, label: MONTH_ABBR[idx], year: year,
+      days: ukupno,
+      channels: {
+        glovo: dayVals(rows.glovo), wolt: dayVals(rows.wolt),
+        kartica: dayVals(rows.kartica), kes: dayVals(rows.kes), kucan_kes: dayVals(rows.kucan_kes)
+      },
+      nabavka: dayVals(nabRow),
+      porudzbina: dayVals(porRow),
+      _row: r
+    });
+    diag.push({ row: r + 1, month: MONTH_ABBR[idx], labelCol: lc, dayCol1: c1, headerRow: hRow >= 0 ? hRow + 1 : null,
+                nab: nabRow >= 0, por: porRow >= 0,
+                total: ukupno.reduce(function(a, b) { return a + b; }, 0) });
+  }
+
+  // Один месяц — одна запись (при дубликатах берём нижний блок)
+  var byIdx = {};
+  found.forEach(function(m) { byIdx[m.idx] = m; });
+  var months = Object.keys(byIdx).map(Number).sort(function(a, b) { return a - b; })
+    .map(function(i) { var m = byIdx[i]; delete m._row; return m; });
+
+  return jsonResponse({ me: { name: myName, position: myPos }, year: year, months: months, diag: diag });
 }
 
 // ══════════════════════════════════════════════════════════════════════

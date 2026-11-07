@@ -164,6 +164,17 @@ body.dark-theme .sum-stat-val-marza{color:#f472b6}
 .sum-stat-lbl{font-size:10px;color:var(--sr-statlbl);font-weight:700;letter-spacing:.5px}
 .sum-stat-val{font-size:13px;font-weight:800;color:var(--sr-statval)}
 
+/* ── MONTH STRIP (history) ─────────────────────────────────────── */
+.month-strip{display:none;gap:8px;overflow-x:auto;padding:10px 14px 4px;-webkit-overflow-scrolling:touch}
+.month-strip.show{display:flex}
+.month-strip::-webkit-scrollbar{display:none}
+.mbtn{flex:0 0 auto;min-width:88px;border:1px solid var(--tile-border);background:var(--bar-bg);border-radius:12px;padding:8px 10px;cursor:pointer;text-align:center;font-family:inherit}
+.mbtn .m-name{display:block;font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--bar-sub)}
+.mbtn .m-val{display:block;font-size:14px;font-weight:900;color:var(--sr-totalval);margin-top:2px}
+.mbtn.active{border-color:#e64;box-shadow:0 0 0 1px #e64 inset}
+.mbtn.active .m-name{color:#e64}
+.mbtn:active{opacity:.7}
+
 /* ── CALENDAR ──────────────────────────────────────────────────── */
 .section-title{font-size:11px;color:var(--sec-title);font-weight:700;letter-spacing:1px;margin-bottom:10px}
 .cal-wrap{margin-bottom:14px}
@@ -275,6 +286,7 @@ body.dark-theme .mr-racun{background:#100e1a;border-top:1px solid #1a1828}body.d
       <button class="btn-logout" onclick="doLogout()">ODJAVA</button>
     </div>
   </div>
+  <div class="month-strip" id="monthStrip"></div>
   <div class="content" id="statsContent">
     <div class="spinner"></div>
   </div>
@@ -313,7 +325,10 @@ const DOW_NAMES = ["PON","UTO","SRE","ČET","PET","SUB","NED"];
 let g_pin  = "";
 let g_name = "";
 let g_pos  = "";
-let g_data = null;
+let g_data = null;      // текущий месяц (для модалки по дням)
+let g_archive = [];     // архивные месяцы
+let g_view = "cur";     // "cur" или индекс архивного месяца
+const MONTH_ABBR = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AVG","SEP","OKT","NOV","DEC"];
 
 // ── Theme (shared with ckf_plata.html via ckfTheme key) ──────────────
 (function initTheme() {
@@ -406,7 +421,9 @@ function loadStats() {
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("statsScreen").style.display  = "block";
       g_data = data;
+      g_view = "cur";
       render(data);
+      loadArchive();
     })
     .catch(() => {
       const isOnStats = document.getElementById("statsScreen").style.display !== "none";
@@ -419,12 +436,67 @@ function loadStats() {
     });
 }
 
+// ── Archive (history by month) ────────────────────────────────────────
+function loadArchive() {
+  fetch(`${SCRIPT_URL}?action=archive&pin=${encodeURIComponent(g_pin)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error || !res.months) { console.warn("archive:", res); return; }
+      g_archive = res.months.map(m => {
+        m.month = MONTH_FULL[m.label] || m.label;   // для render()
+        return m;
+      });
+      renderMonthStrip();
+    })
+    .catch(e => console.warn("archive fetch failed", e));
+}
+
+function sumArr(arr) { return (arr || []).reduce((s, v) => s + Math.round(v || 0), 0); }
+
+function renderMonthStrip() {
+  const strip = document.getElementById("monthStrip");
+  const curKey = (g_data && g_data.month || "").toUpperCase().trim();
+  const curIdx = MONTH_IDX[curKey];
+  const items = g_archive.filter(m => m.idx !== curIdx);
+  if (!items.length) { strip.classList.remove("show"); return; }
+
+  let html = "";
+  for (const m of items) {
+    html += `<button class="mbtn${g_view === m.idx ? " active" : ""}" onclick="selectMonth(${m.idx})">
+      <span class="m-name">${MONTH_ABBR[m.idx]}</span>
+      <span class="m-val">${fmtNum(sumArr(m.days))}</span>
+    </button>`;
+  }
+  if (g_data) {
+    html += `<button class="mbtn${g_view === "cur" ? " active" : ""}" onclick="selectMonth('cur')">
+      <span class="m-name">${MONTH_ABBR[curIdx] || curKey} ●</span>
+      <span class="m-val">${fmtNum(sumArr(g_data.days))}</span>
+    </button>`;
+  }
+  strip.innerHTML = html;
+  strip.classList.add("show");
+  const act = strip.querySelector(".active");
+  if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
+}
+
+function selectMonth(key) {
+  g_view = key;
+  if (key === "cur") {
+    render(g_data, false);
+  } else {
+    const m = g_archive.find(x => x.idx === key);
+    if (m) render(m, true);
+  }
+  renderMonthStrip();
+  window.scrollTo(0, 0);
+}
+
 // ── Render ─────────────────────────────────────────────────────────────
-function render(data) {
+function render(data, readonly) {
   const monthKey  = (data.month || "").toUpperCase().trim();
   const monthName = MONTH_FULL[monthKey] || monthKey;
   const monthIdx  = MONTH_IDX[monthKey];
-  const year      = new Date().getFullYear();
+  const year      = data.year || new Date().getFullYear();
   const days      = data.days || [];
   const ch        = data.channels || {};
   const porud     = data.porudzbina || [];
@@ -497,7 +569,7 @@ function render(data) {
   // ── Calendar
   if (monthIdx !== undefined) {
     html += `<div class="cal-wrap"><div class="section-title">PRIHOD PO DANIMA</div>`;
-    html += buildCalendar(days, year, monthIdx);
+    html += buildCalendar(days, year, monthIdx, !readonly);
     html += `</div>`;
   }
 
@@ -505,7 +577,7 @@ function render(data) {
 }
 
 // ── Calendar builder ──────────────────────────────────────────────────
-function buildCalendar(days, year, monthIdx) {
+function buildCalendar(days, year, monthIdx, clickable) {
   const today      = new Date();
   const isCurMonth = today.getFullYear() === year && today.getMonth() === monthIdx;
   const todayDay   = today.getDate();
@@ -540,7 +612,7 @@ function buildCalendar(days, year, monthIdx) {
     const style  = `--pct:${pct.toFixed(3)}`;
     const valStr = val > 0 ? fmtK(val) : "";
     const fsize  = 15;
-    const click  = val > 0 ? ` onclick="showDay(${d})"` : "";
+    const click  = (clickable && val > 0) ? ` onclick="showDay(${d})"` : "";
 
     html += `<div class="${cls}" style="${style}"${click}>
       <span class="day-num">${d}</span>
@@ -636,7 +708,8 @@ function fmtK(n) {
 
 function doLogout() {
   try { localStorage.removeItem("ckf_session"); } catch(e) {}
-  g_pin = ""; g_name = ""; g_pos = ""; g_data = null;
+  g_pin = ""; g_name = ""; g_pos = ""; g_data = null; g_archive = []; g_view = "cur";
+  document.getElementById("monthStrip").classList.remove("show");
   document.getElementById("pinInput").value = "";
   document.getElementById("loginErr").textContent = "";
   showLogin();
