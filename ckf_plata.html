@@ -225,6 +225,7 @@ body.dark-theme .emp-cal-wrap .cal-title { color:#f2f2f7; }
 .salary-row.dug       .sr-val { color:var(--accent); }
 .salary-row.dug.paid  .sr-val { color:var(--green); }
 .salary-row.preneto   .sr-val { color:#0ea5e9; }
+.salary-row.godisnji  .sr-val { color:var(--blue); }
 .salary-row.zaradjeno,
 .salary-row.dug {
   background:#f9f9fb;
@@ -858,6 +859,10 @@ function renderPeriodTab(period) {
         ${(rec.PRENETO && rec.PRENETO > 0) ? `<div class="salary-row preneto">
           <span class="sr-label">PRENETO</span>
           <span class="sr-val">${fmt(rec.PRENETO)} €</span>
+        </div>` : ""}
+        ${(rec.GODISNJI && rec.GODISNJI > 0) ? `<div class="salary-row godisnji">
+          <span class="sr-label">GODISNJI</span>
+          <span class="sr-val">${fmt(rec.GODISNJI)} €</span>
         </div>` : ""}
       </div>
     </div>`;

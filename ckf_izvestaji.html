@@ -212,7 +212,7 @@ body.dark-theme .cal-cell.has-data{
 
 .day-num{font-size:10px;font-weight:700;color:var(--cell-num);position:absolute;top:4px;left:6px;line-height:1}
 .cal-cell.has-data .day-num{color:var(--cell-has-num)}
-.day-val{font-weight:800;color:#1a4a1a;margin-top:4px;text-align:center;line-height:1;white-space:nowrap}
+.day-val{display:block;max-width:none;font-weight:800;color:#1a4a1a;margin-top:4px;text-align:center;line-height:1;white-space:nowrap}
 body.dark-theme .day-val{color:#fff}
 
 /* ── MODAL ─────────────────────────────────────────────────────── */
@@ -475,6 +475,7 @@ function renderMonthStrip() {
   }
   strip.innerHTML = html;
   strip.classList.add("show");
+  fitAllText();
   const act = strip.querySelector(".active");
   if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
 }
@@ -574,7 +575,27 @@ function render(data, readonly) {
   }
 
   document.getElementById("statsContent").innerHTML = html;
+  fitAllText();
 }
+
+// ── Auto-fit: цифры подстраиваются под ширину ячейки ────────────────
+function fitText(el, maxPx, minPx, padding) {
+  const box = el.parentElement;
+  if (!box || !box.clientWidth) return;
+  const avail = box.clientWidth - padding;
+  let size = maxPx;
+  el.style.fontSize = size + "px";
+  while (el.scrollWidth > avail && size > minPx) {
+    size -= 0.5;
+    el.style.fontSize = size + "px";
+  }
+}
+
+function fitAllText() {
+  document.querySelectorAll("#statsContent .day-val").forEach(el => fitText(el, 18, 7, 8));
+  document.querySelectorAll("#monthStrip .m-val").forEach(el => fitText(el, 14, 8, 20));
+}
+window.addEventListener("resize", fitAllText);
 
 // ── Calendar builder ──────────────────────────────────────────────────
 function buildCalendar(days, year, monthIdx, clickable) {

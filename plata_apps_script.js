@@ -124,7 +124,7 @@ function doGet(e) {
         DUG:       toNum(row[dugCol]),
       };
       if (prenetoCol !== null) rec.PRENETO = toNum(row[prenetoCol]);
-      if (canSeeAll && godCol !== null) rec.GODISNJI = toNum(row[godCol]);
+      if (godCol !== null) rec.GODISNJI = toNum(row[godCol]);   // каждый видит свою запись
       records.push(rec);
     }
 
@@ -210,7 +210,7 @@ function getCalendarData(ss, pin, targetName) {
   let majRow = -1, smenaRow = -1, odrRow = -1, uplRow = -1, godRow = -1;
 
   const KNOWN_LABELS = ["SATNICA","ZARADJENO","ZARAĐENO","UPLACENO","UPLAĆENO",
-                        "DUG","ZVANICNO","GODISNJI","GODISNJE","GODIŠNJI","GODIŠNJE",
+                        "DUG","PRENETO","ZVANICNO","ZVANICNA PLATA","GODISNJI","GODISNJE","GODIŠNJI","GODIŠNJE",
                         "SMENA","ODRADJENO","ODRAĐENO"];
 
   for (let i = empRow + 1; i < Math.min(empRow + 25, data.length); i++) {
@@ -308,7 +308,7 @@ function saveCalendarDay(ss, pin, targetName, day, smena, hoursRaw, uplRaw) {
   const MONTHS = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AVG","SEP","OKT","NOV","DEC",
                   "JANUAR","FEBRUAR","MART","APRIL","JUNI","JULI","AVGUST","SEPTEMBAR","OKTOBAR","NOVEMBAR","DECEMBAR"];
   const KNOWN  = ["SATNICA","ZARADJENO","ZARAĐENO","UPLACENO","UPLAĆENO","UPLAČENO",
-                  "PLACENO","PLAĆENO","PLAČENO","DUG","ZVANICNO","GODISNJI","SMENA",
+                  "PLACENO","PLAĆENO","PLAČENO","DUG","PRENETO","ZVANICNO","GODISNJI","GODISNJE","SMENA",
                   "ODRADJENO","ODRAĐENO"];
   let smenaRow = -1, odrRow = -1, uplRow = -1;
 
