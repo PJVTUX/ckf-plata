@@ -10,7 +10,13 @@ const RASPORED_NAME = "RASPORED";
 const COL_LABEL = 2; // Колонка C (0-based) — метки строк в RASPORED
 const COL_DAY1  = 4; // Колонка E (0-based) — день 1 в RASPORED
 
+const SCRIPT_VERSION = "2026-11-20 godisnji+preneto+archive";
+
 function doGet(e) {
+  e = e || { parameter: {} };   // запуск из редактора без параметров
+  if ((e.parameter.ping || "") === "1") {
+    return jsonResponse({ ok: true, version: SCRIPT_VERSION });   // проверка, что развёрнута новая версия
+  }
   const pin    = (e.parameter.pin    || "").trim();
   const action = (e.parameter.action || "").trim().toLowerCase();
   const debug  = (e.parameter.debug  || "") === "1";
@@ -124,14 +130,39 @@ function doGet(e) {
         DUG:       toNum(row[dugCol]),
       };
       if (prenetoCol !== null) rec.PRENETO = toNum(row[prenetoCol]);
-      if (godCol !== null) rec.GODISNJI = toNum(row[godCol]);   // каждый видит свою запись
+      // GODISNJI: из столбца PLATA, а если пусто — сумма строки GODISNJI из RASPORED
+      let godVal = godCol !== null ? toNum(row[godCol]) : 0;
+      if (!godVal) godVal = godFromRaspored(ss, rec.radnik);
+      if (godVal) rec.GODISNJI = godVal;
       records.push(rec);
     }
 
     if (records.length === 0) return jsonResponse({ error: "PIN nije pronađen" });
 
+    // Хронологический ключ для текущих записей
+    records.forEach(r => { r.sort = periodSort(r.period); r.archived = false; });
+
+    // История: прошлые месяцы из листа ARCHIVE (только по видимым сотрудникам)
+    try {
+      const visible = {};
+      records.forEach(r => { visible[canonName(r.radnik)] = r; });
+      getPlataArchive(ss).forEach(a => {
+        const base = visible[canonName(a.name)];
+        if (!base) return;
+        if (records.some(r => r.radnik === base.radnik && r.sort === a.sort)) return;
+        const rec = {
+          radnik: base.radnik, position: base.position, period: a.period, sort: a.sort, archived: true,
+          PLATA: a.plata, satnica: a.satnica, ODRADJENO: a.odr, ZARADJENO: a.zar,
+          UPLACENO: a.upl, DUG: a.dug
+        };
+        if (a.preneto) rec.PRENETO = a.preneto;
+        if (a.god) rec.GODISNJI = a.god;
+        records.push(rec);
+      });
+    } catch (archErr) { /* история необязательна — текущие данные отдаём в любом случае */ }
+
     records.sort((a, b) => {
-      const p = String(b.period).localeCompare(String(a.period));
+      const p = (b.sort || 0) - (a.sort || 0);
       if (p !== 0) return p;
       const aA = a.position === "administrator" ? 0 : 1;
       const bA = b.position === "administrator" ? 0 : 1;
@@ -209,24 +240,24 @@ function getCalendarData(ss, pin, targetName) {
                   "JANUAR","FEBRUAR","MART","APRIL","JUNI","JULI","AVGUST","SEPTEMBAR","OKTOBAR","NOVEMBAR","DECEMBAR"];
   let majRow = -1, smenaRow = -1, odrRow = -1, uplRow = -1, godRow = -1;
 
-  const KNOWN_LABELS = ["SATNICA","ZARADJENO","ZARAĐENO","UPLACENO","UPLAĆENO",
-                        "DUG","PRENETO","ZVANICNO","ZVANICNA PLATA","GODISNJI","GODISNJE","GODIŠNJI","GODIŠNJE",
-                        "SMENA","ODRADJENO","ODRAĐENO"];
+  // Имена всех сотрудников — граница блока = имя другого сотрудника
+  const allNames = {};
+  for (let i = 1; i < plataData.length; i++) {
+    const nm = String(plataData[i][radnikCol] || "").trim().toUpperCase();
+    if (nm) allNames[nm] = true;
+  }
 
-  for (let i = empRow + 1; i < Math.min(empRow + 25, data.length); i++) {
-    const lbl = String(data[i][COL_LABEL] || "").trim().toUpperCase();
-    if (MONTHS.some(m => lbl === m || lbl.startsWith(m + " "))) { majRow   = i; continue; }
+  for (let i = empRow + 1; i < Math.min(empRow + 30, data.length); i++) {
+    const lbl  = String(data[i][COL_LABEL] || "").trim().toUpperCase();
+    const nlbl = normLbl(lbl);
+    if (lbl !== "" && lbl !== showName && allNames[lbl]) break;   // следующий сотрудник
+    if (MONTHS.some(m => lbl === m || lbl.startsWith(m + " "))) { if (majRow < 0) majRow = i; continue; }
     if (lbl === "SMENA")                                          { smenaRow = i; continue; }
     if (lbl === "ODRADJENO" || lbl === "ODRAĐENO")               { odrRow   = i; continue; }
     if (lbl === "UPLACENO"  || lbl === "UPLAĆENO"  ||
         lbl === "UPLAČENO"  || lbl === "PLACENO"   ||
         lbl === "PLAĆENO"   || lbl === "PLAČENO")                { uplRow   = i; continue; }
-    if (lbl === "GODISNJI"  || lbl === "GODISNJE"  ||
-        lbl === "GODIŠNJI"  || lbl === "GODIŠNJE")               { godRow   = i; continue; }
-    // Если встретили следующего сотрудника — стоп
-    if (lbl !== "" && !KNOWN_LABELS.includes(lbl) &&
-        MONTHS.every(m => !lbl.startsWith(m)) &&
-        majRow >= 0 && smenaRow >= 0 && odrRow >= 0) break;
+    if (nlbl.indexOf("GODISN") === 0)                            { godRow   = i; continue; }
   }
 
   // Собираем данные по дням
@@ -256,8 +287,125 @@ function getCalendarData(ss, pin, targetName) {
     month:     monthLabel,
     days:      days,
     employee:  showName,
-    employees: employeeList
+    employees: employeeList,
+    rows:      { maj: majRow + 1, smena: smenaRow + 1, odr: odrRow + 1, upl: uplRow + 1, god: godRow + 1 }
   });
+}
+
+// ── История ЗП: блоки сотрудников из листа ARCHIVE ──────────────────
+// Блок: строка «ИМЯ | оклад», затем «МЕСЯЦ | 208 sati», затем SATNICA, SMENA,
+// ODRADJENO, ZARADJENO, UPLACENO, DUG, [PRENETO], ZVANICNO, [GODISNJI].
+// Метки в колонке C, значения в колонке D. Пока данные ведутся в таблице —
+// читаем их отсюда; после перехода на базу этот источник заменяется.
+const PERIOD_MONTHS = ["JANUAR","FEBRUAR","MART","APRIL","MAJ","JUN","JUL","AVGUST","SEPTEMBAR","OKTOBAR","NOVEMBAR","DECEMBAR"];
+const PERIOD_MONTH_MAP = {
+  "JAN":0,"JANUAR":0,"FEB":1,"FEBRUAR":1,"MAR":2,"MART":2,"APR":3,"APRIL":3,"MAJ":4,
+  "JUN":5,"JUNI":5,"JUL":6,"JULI":6,"AVG":7,"AVGUST":7,"SEP":8,"SEPT":8,"SEPTEMBAR":8,
+  "OKT":9,"OKTOBAR":9,"NOV":10,"NOVEMBAR":10,"DEC":11,"DECEMBAR":11
+};
+const NAME_ALIASES = {
+  "JEVJENIJ":"EVGENIJE","JEVGENIJ":"EVGENIJE","JEVGENIJE":"EVGENIJE","EVJENIJ":"EVGENIJE","EVGENIJ":"EVGENIJE"
+};
+
+function canonName(n) {
+  const k = normLbl(n).replace(/\s+/g, " ").trim();
+  return NAME_ALIASES[k] || k;
+}
+
+// Период → число для сортировки (ГГГГММ). Понимает «NOVEMBAR», «NOVEMBAR 2026» и «2026-11».
+function periodSort(p) {
+  const s = String(p || "").trim();
+  const now = new Date();
+  let m = /^(\d{4})-(\d{1,2})$/.exec(s);
+  if (m) return parseInt(m[1], 10) * 100 + (parseInt(m[2], 10) - 1);
+  const tok = normLbl(s).split(/[\s\d\-\/\.]+/)[0];
+  const idx = PERIOD_MONTH_MAP[tok];
+  if (idx === undefined) return 0;
+  const ym = /(\d{4})/.exec(s);
+  let year = ym ? parseInt(ym[1], 10) : now.getFullYear();
+  if (!ym && idx > now.getMonth()) year -= 1;   // месяц «из будущего» = прошлый год
+  return year * 100 + idx;
+}
+
+function getPlataArchive(ss) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("plata_arch_v1");
+  if (cached) { try { return JSON.parse(cached); } catch (e) {} }
+
+  let sheet = null;
+  ss.getSheets().forEach(function(s) {
+    const n = normLbl(s.getName());
+    if (!sheet && (n.indexOf("ARH") >= 0 || n.indexOf("ARCH") >= 0)) sheet = s;
+  });
+  if (!sheet) return [];
+  const data = sheet.getRange(1, 1, sheet.getLastRow(), 5).getValues();
+
+  const LABELS = ["SATNICA","SMENA","ODRADJENO","ZARADJENO","UPLACENO","DUG","PRENETO","ZVANICNO"];
+  const out = [];
+  for (let r = 0; r < data.length - 3; r++) {
+    const name = String(data[r][2] || "").trim();
+    if (!name) continue;
+    const nn = normLbl(name);
+    if (LABELS.indexOf(nn) >= 0 || nn.indexOf("GODISN") === 0 || PERIOD_MONTH_MAP[nn.split(/\s+/)[0]] !== undefined) continue;
+    // следующая строка — месяц и «NNN sati/sata»
+    const mTok = normLbl(data[r + 1][2]).split(/[\s\d]+/)[0];
+    const hrs  = normLbl(data[r + 1][3]);
+    if (PERIOD_MONTH_MAP[mTok] === undefined || hrs.indexOf("SAT") < 0) continue;
+
+    const idx = PERIOD_MONTH_MAP[mTok];
+    const now = new Date();
+    const year = idx > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
+    const blk = { name: name, period: PERIOD_MONTHS[idx], sort: year * 100 + idx, plata: toNum(data[r][3]),
+                  satnica: "", odr: 0, zar: 0, upl: 0, dug: 0, preneto: 0, god: 0 };
+    for (let k = r + 2; k < Math.min(r + 14, data.length); k++) {
+      const lb = normLbl(data[k][2]);
+      const v  = data[k][3];
+      if      (lb === "SATNICA")   blk.satnica = String(v === "" ? "" : v).trim();
+      else if (lb === "ODRADJENO") blk.odr = toNum(v);
+      else if (lb === "ZARADJENO") blk.zar = toNum(v);
+      else if (lb === "UPLACENO")  blk.upl = toNum(v);
+      else if (lb === "DUG")       blk.dug = toNum(v);
+      else if (lb === "PRENETO")   blk.preneto = toNum(v);
+      else if (lb.indexOf("GODISN") === 0) blk.god = toNum(v);
+      else if (lb === "SMENA" || lb === "ZVANICNO") continue;
+      else break;
+    }
+    if (blk.zar || blk.upl || blk.odr) out.push(blk);
+  }
+  try { cache.put("plata_arch_v1", JSON.stringify(out), 600); } catch (e) {}
+  return out;
+}
+
+// ── Сумма отпускных сотрудника из строки GODISNJI в RASPORED ────────
+var _rasCache = null;
+function godFromRaspored(ss, name) {
+  try {
+    if (_rasCache === null) {
+      const sh = ss.getSheetByName(RASPORED_NAME);
+      _rasCache = sh ? sh.getDataRange().getValues() : [];
+    }
+    const data = _rasCache;
+    const target = String(name || "").trim().toUpperCase();
+    if (!target) return 0;
+    let empRow = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][COL_LABEL] || "").trim().toUpperCase() === target) { empRow = i; break; }
+    }
+    if (empRow < 0) return 0;
+    for (let i = empRow + 1; i < Math.min(empRow + 30, data.length); i++) {
+      const lbl = normLbl(data[i][COL_LABEL]);
+      if (lbl.indexOf("GODISN") === 0) {
+        let s = 0;
+        for (let d = 0; d < 31; d++) s += toNum(data[i][COL_DAY1 + d]);
+        return s > 0 ? s : toNum(data[i][COL_LABEL + 1]);
+      }
+      // другой сотрудник (метка не из служебных) — конец блока
+      if (lbl !== "" && lbl !== target && lbl.indexOf("GODISN") !== 0 &&
+          ["SATNICA","SMENA","ODRADJENO","ZARADJENO","UPLACENO","PLACENO","DUG","PRENETO","ZVANICNO"].indexOf(lbl) < 0 &&
+          !/^(JAN|FEB|MAR|APR|MAJ|JUN|JUL|AVG|SEP|OKT|NOV|DEC)/.test(lbl)) break;
+    }
+  } catch (e) {}
+  return 0;
 }
 
 // ── Сохранение одного дня в RASPORED ────────────────────────────────
@@ -341,7 +489,7 @@ function saveCalendarDay(ss, pin, targetName, day, smena, hoursRaw, uplRaw) {
 // ── Вспомогательные функции ──────────────────────────────────────────
 function toNum(v) {
   if (v === "" || v === null || v === undefined) return 0;
-  const n = parseFloat(String(v).replace(",", "."));
+  const n = parseFloat(String(v).replace(/−/g, "-").replace(",", "."));
   return isNaN(n) ? 0 : Math.round(n * 100) / 100;
 }
 
@@ -541,6 +689,9 @@ function getArchiveData(ss, myName, myPos) {
       else if (lb === "KES" && rows.kes < 0)                 rows.kes = up;
       else if (lb.indexOf("KUCAN") === 0 && rows.kucan_kes < 0) rows.kucan_kes = up;
     }
+
+    // Это точно блок выручки только если нашлись каналы
+    if (rows.glovo < 0 && rows.wolt < 0) continue;
 
     // 4) NABAVKA и PORUDZBINA — ниже UKUPNO
     var nabRow = -1, porRow = -1;

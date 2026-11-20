@@ -658,8 +658,9 @@ function showApp() {
     }
   } else {
     // Admin / Owner — see all employees
-    const periods = [...new Set(records.map(r => r.period))]
-      .sort((a, b) => String(b).localeCompare(String(a)));
+    const sortOf = {};
+    records.forEach(r => { sortOf[r.period] = Math.max(sortOf[r.period] || 0, r.sort || 0); });
+    const periods = Object.keys(sortOf).sort((a, b) => (sortOf[b] - sortOf[a]));
     renderTabsAdmin(periods);
     if (periods.length > 0) {
       activePeriod = periods[0];
@@ -737,7 +738,7 @@ function renderPeriodAdmin(period) {
     const empId = (rec.radnik || "").replace(/\s+/g, "_");
     html += `
     <div class="emp-card">
-      <div class="emp-card-header" onclick="toggleEmpCalendar('${(rec.radnik || "").replace(/'/g, "\\'")}')">
+      <div class="emp-card-header"${rec.archived ? "" : ` onclick="toggleEmpCalendar('${(rec.radnik || "").replace(/'/g, "\\'")}')"`}>
         <span class="emp-card-name">${rec.radnik || "—"}</span>
         <span class="emp-card-badge ${badgeClass}">${posKey.toUpperCase()}</span>
       </div>
@@ -821,6 +822,9 @@ function renderPeriodTab(period) {
   const rec = (employeeData.records || []).find(r => r.period === period);
   if (!rec) return;
   const wrap = document.getElementById("salary-wrap");
+  // Для прошлых месяцев календарь по дням не показываем — только итоговый блок
+  const calWrap = document.getElementById("calendar-wrap");
+  if (calWrap) calWrap.style.display = rec.archived ? "none" : "";
 
   const dug    = parseFloat(rec.DUG) || 0;   // только из таблицы, без расчётов
   const isPaid = dug <= 0;
